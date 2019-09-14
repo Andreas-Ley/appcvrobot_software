@@ -57,7 +57,7 @@ void Robot::addSubsystem(std::unique_ptr<Subsystem> subsystem)
 {
     DrivePolicy* dp = dynamic_cast<DrivePolicy*>(subsystem.get());
     if (dp != nullptr) {
-        if (m_drivePolicy == nullptr)
+        if (m_drivePolicy != nullptr)
             throw std::runtime_error("Robot already has a drive policy!");
         
         m_drivePolicy = dp;
