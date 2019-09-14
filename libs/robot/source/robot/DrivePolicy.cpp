@@ -66,15 +66,15 @@ void DrivePolicy::outputDrive(float left, float right)
     }
     
     if (right > 0.0f) {
-        gpioWrite(GPIO_PIN_DIRECTION_A_RIGHT, 0);
-        gpioWrite(GPIO_PIN_DIRECTION_B_RIGHT, 1);
-        
-        gpioPWM(GPIO_PIN_PWM_RIGHT, std::min<int>(std::abs(left * 255.0f), 255));
-    } else if (right < 0.0f) {
         gpioWrite(GPIO_PIN_DIRECTION_A_RIGHT, 1);
         gpioWrite(GPIO_PIN_DIRECTION_B_RIGHT, 0);
+        
+        gpioPWM(GPIO_PIN_PWM_RIGHT, std::min<int>(std::abs(right * 255.0f), 255));
+    } else if (right < 0.0f) {
+        gpioWrite(GPIO_PIN_DIRECTION_A_RIGHT, 0);
+        gpioWrite(GPIO_PIN_DIRECTION_B_RIGHT, 1);
 
-        gpioPWM(GPIO_PIN_PWM_RIGHT, std::min<int>(std::abs(left * 255.0f), 255));
+        gpioPWM(GPIO_PIN_PWM_RIGHT, std::min<int>(std::abs(right * 255.0f), 255));
     } else {
         gpioWrite(GPIO_PIN_DIRECTION_A_RIGHT, 0);
         gpioWrite(GPIO_PIN_DIRECTION_B_RIGHT, 0);
