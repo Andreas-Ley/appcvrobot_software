@@ -45,8 +45,8 @@ class DrivePolicyAccLimited : public DrivePolicy
         float m_currentSpeedLeft = 0.0f;
         float m_currentSpeedRight = 0.0f;
         
-        float m_maxAccelerationLeft = 1.0f;
-        float m_maxAccelerationRight = 1.0f;
+        float m_maxAccelerationLeft = 5.0f;
+        float m_maxAccelerationRight = 5.0f;
         
         std::mutex m_mutex;
 };
