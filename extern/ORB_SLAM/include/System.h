@@ -150,8 +150,10 @@ private:
     // a pose graph optimization and full bundle adjustment (in a new thread) afterwards.
     LoopClosing* mpLoopCloser;
 
+#ifdef ORBSLAM_WITH_PANGOLIN
     // The viewer draws the map and the current camera pose. It uses Pangolin.
     Viewer* mpViewer;
+#endif
 
     FrameDrawer* mpFrameDrawer;
     MapDrawer* mpMapDrawer;

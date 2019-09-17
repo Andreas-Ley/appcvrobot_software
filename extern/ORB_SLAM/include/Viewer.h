@@ -22,6 +22,8 @@
 #ifndef VIEWER_H
 #define VIEWER_H
 
+#ifdef ORBSLAM_WITH_PANGOLIN
+
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
 #include "Tracking.h"
@@ -85,6 +87,8 @@ private:
 
 }
 
+
+#endif
 
 #endif // VIEWER_H
 	

@@ -23,7 +23,11 @@
 #include "System.h"
 #include "Converter.h"
 #include <thread>
+
+#ifdef ORBSLAM_WITH_PANGOLIN
 #include <pangolin/pangolin.h>
+#endif
+
 #include <iomanip>
 
 #include <unistd.h>
@@ -32,7 +36,11 @@ namespace ORB_SLAM2
 {
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
-               const bool bUseViewer):mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),mbActivateLocalizationMode(false),
+               const bool bUseViewer):mSensor(sensor), 
+#ifdef ORBSLAM_WITH_PANGOLIN
+               mpViewer(static_cast<Viewer*>(NULL)), 
+#endif
+               mbReset(false),mbActivateLocalizationMode(false),
         mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
@@ -96,6 +104,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
+#ifdef ORBSLAM_WITH_PANGOLIN
     //Initialize the Viewer thread and launch
     if(bUseViewer)
     {
@@ -103,6 +112,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mptViewer = new thread(&Viewer::Run, mpViewer);
         mpTracker->SetViewer(mpViewer);
     }
+#endif
 
     //Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
@@ -304,21 +314,24 @@ void System::Shutdown()
 {
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
+#ifdef ORBSLAM_WITH_PANGOLIN    
     if(mpViewer)
     {
         mpViewer->RequestFinish();
         while(!mpViewer->isFinished())
             usleep(5000);
     }
+#endif
 
     // Wait until all thread have effectively stopped
     while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() || mpLoopCloser->isRunningGBA())
     {
         usleep(5000);
     }
-
+#ifdef ORBSLAM_WITH_PANGOLIN
     if(mpViewer)
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");
+#endif
 }
 
 void System::SaveTrajectoryTUM(const string &filename)

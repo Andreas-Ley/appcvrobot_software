@@ -18,7 +18,11 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef ORBSLAM_WITH_PANGOLIN
+
 #include "Viewer.h"
+
+
 #include <pangolin/pangolin.h>
 
 #include <mutex>
@@ -31,6 +35,7 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
     mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),
     mbFinishRequested(false), mbFinished(true), mbStopped(true), mbStopRequested(false)
 {
+    
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
     float fps = fSettings["Camera.fps"];
@@ -231,3 +236,4 @@ void Viewer::Release()
 }
 
 }
+#endif

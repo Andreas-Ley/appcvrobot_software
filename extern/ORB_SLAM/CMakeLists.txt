@@ -5,6 +5,8 @@ find_package( OpenCV REQUIRED )
 find_package(Eigen3 3.1.0 REQUIRED)
 
 
+option(ORBSLAM_WITH_PANGOLIN "Build IRB_SLAM with visualization stuff" OFF)
+
 
 add_library(orb_slam STATIC
     src/System.cc
@@ -56,3 +58,6 @@ target_link_libraries(orb_slam PUBLIC
     g2o
 )
 
+if(ORBSLAM_WITH_PANGOLIN)
+    target_compile_definitions(orb_slam PUBLIC "ORBSLAM_WITH_PANGOLIN")
+endif(ORBSLAM_WITH_PANGOLIN)
