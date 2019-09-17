@@ -35,3 +35,4 @@ endif(BUILD_WITH_ORB_SLAM)
 
 add_subdirectory(libs/robot/)
 add_subdirectory(executables/DebugDashboard/)
+add_subdirectory(executables/ORBSLAM_Test/)

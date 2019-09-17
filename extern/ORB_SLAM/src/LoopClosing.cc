@@ -33,9 +33,9 @@
 
 #include <unistd.h>
 
-
 namespace ORB_SLAM2
 {
+
 
 LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, const bool bFixScale):
     mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
@@ -101,6 +101,7 @@ bool LoopClosing::CheckNewKeyFrames()
     unique_lock<mutex> lock(mMutexLoopQueue);
     return(!mlpLoopKeyFrameQueue.empty());
 }
+
 
 bool LoopClosing::DetectLoop()
 {
@@ -400,6 +401,7 @@ bool LoopClosing::ComputeSim3()
     }
 
 }
+
 
 void LoopClosing::CorrectLoop()
 {

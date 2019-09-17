@@ -759,4 +759,5 @@ bool LocalMapping::isFinished()
     return mbFinished;
 }
 
+    
 } //namespace ORB_SLAM
