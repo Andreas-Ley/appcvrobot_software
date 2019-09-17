@@ -52,3 +52,30 @@ Optional: Configure various options
 
 
 
+## ffmpeg Video streaming
+
+    ffmpeg -f v4l2 -input_format h264 -framerate 15 -i /dev/video0 -c:v copy -fflags nobuffer -f mpegts udp://192.168.93.167:1337
+
+    ffplay -fflags nobuffer -flags low_delay -framedrop -strict experimental -probesize 32 -analyzeduration 0 -sync ext udp://@:1337
+
+
+## Misc
+
+    v4l2-ctl -L
+
+Rotate, but breaks calibration:
+
+    v4l2-ctl -c rotate=180
+
+for video, trade noise for lower exposure times:
+
+    v4l2-ctl -c iso_sensitivity_auto=0
+    v4l2-ctl -c iso_sensitivity=4
+
+not sure if it helps with exposure times
+
+    v4l2-ctl -c scene_mode=11 
+    
+    v4l2-ctl -c video_bitrate=25000000
+    
+
