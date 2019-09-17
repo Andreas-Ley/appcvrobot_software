@@ -42,6 +42,7 @@ class DrivePolicy : public Subsystem
         virtual void fullStop() override;
         virtual void setDesiredWheelSpeed(float left, float right) = 0;
     protected:
+        
         void outputDrive(float left, float right);
 };
 

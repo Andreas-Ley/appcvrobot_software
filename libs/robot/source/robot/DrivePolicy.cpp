@@ -47,7 +47,6 @@ void DrivePolicy::fullStop()
     outputDrive(0.0f, 0.0f);
 }
 
-
 namespace {
 
 const unsigned calibrationCurveLeftMotor_inputOutputPairsSize = 6;

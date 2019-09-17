@@ -16,9 +16,22 @@ if(BUILD_WITH_ROBOT_STUBS)
 endif(BUILD_WITH_ROBOT_STUBS)
 
 
+
+option(BUILD_WITH_ORB_SLAM "Build with ORB SLAM (requires OpenCV)" OFF)
+if(BUILD_WITH_ORB_SLAM)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBUILD_WITH_ORB_SLAM")
+endif(BUILD_WITH_ORB_SLAM)
+
+
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} -O3 -g -DNDEBUG")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Og -g")
+
+if(BUILD_WITH_ORB_SLAM)
+add_subdirectory(extern/g2o/)
+add_subdirectory(extern/DBoW2/)
+add_subdirectory(extern/ORB_SLAM/)
+endif(BUILD_WITH_ORB_SLAM)
 
 add_subdirectory(libs/robot/)
 add_subdirectory(executables/DebugDashboard/)
