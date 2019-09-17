@@ -88,12 +88,17 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpMap = new Map();
 
     //Create Drawers. These are used by the Viewer
+#ifdef ORBSLAM_WITH_PANGOLIN
     mpFrameDrawer = new FrameDrawer(mpMap);
     mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
+#endif
 
     //Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
-    mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
+    mpTracker = new Tracking(this, mpVocabulary, 
+#ifdef ORBSLAM_WITH_PANGOLIN
+                             mpFrameDrawer, mpMapDrawer,
+#endif
                              mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor);
 
     //Initialize the Local Mapping thread and launch

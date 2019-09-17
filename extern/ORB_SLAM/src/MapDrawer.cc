@@ -18,6 +18,8 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef ORBSLAM_WITH_PANGOLIN
+
 #include "MapDrawer.h"
 #include "MapPoint.h"
 #include "KeyFrame.h"
@@ -262,3 +264,6 @@ void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)
 }
 
 } //namespace ORB_SLAM
+
+
+#endif

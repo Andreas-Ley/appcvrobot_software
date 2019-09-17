@@ -21,9 +21,12 @@
 #ifndef MAPDRAWER_H
 #define MAPDRAWER_H
 
+#ifdef ORBSLAM_WITH_PANGOLIN
+
 #include"Map.h"
 #include"MapPoint.h"
 #include"KeyFrame.h"
+
 #include<pangolin/pangolin.h>
 
 #include<mutex>
@@ -40,6 +43,7 @@ public:
 
     void DrawMapPoints();
     void DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph);
+    
     void DrawCurrentCamera(pangolin::OpenGlMatrix &Twc);
     void SetCurrentCameraPose(const cv::Mat &Tcw);
     void SetReferenceKeyFrame(KeyFrame *pKF);
@@ -60,5 +64,7 @@ private:
 };
 
 } //namespace ORB_SLAM
+
+#endif
 
 #endif // MAPDRAWER_H

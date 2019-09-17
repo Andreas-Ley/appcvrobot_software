@@ -43,10 +43,18 @@ using namespace std;
 namespace ORB_SLAM2
 {
 
-Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor):
+Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, 
+#ifdef ORBSLAM_WITH_PANGOLIN
+                   FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, 
+#endif
+                   Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor):
     mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), mbVO(false), mpORBVocabulary(pVoc),
-    mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
-    mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpMap(pMap), mnLastRelocFrameId(0)
+    mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), 
+#ifdef ORBSLAM_WITH_PANGOLIN
+    mpViewer(NULL),
+    mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), 
+#endif
+    mpMap(pMap), mnLastRelocFrameId(0)
 {
     // Load camera parameters from settings file
 
@@ -157,11 +165,12 @@ void Tracking::SetLoopClosing(LoopClosing *pLoopClosing)
 {
     mpLoopClosing=pLoopClosing;
 }
-
+#ifdef ORBSLAM_WITH_PANGOLIN
 void Tracking::SetViewer(Viewer *pViewer)
 {
     mpViewer=pViewer;
 }
+#endif
 
 
 cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp)
@@ -282,9 +291,9 @@ void Tracking::Track()
             StereoInitialization();
         else
             MonocularInitialization();
-
+#ifdef ORBSLAM_WITH_PANGOLIN
         mpFrameDrawer->Update(this);
-
+#endif
         if(mState!=OK)
             return;
     }
@@ -413,10 +422,10 @@ void Tracking::Track()
             mState = OK;
         else
             mState=LOST;
-
+#ifdef ORBSLAM_WITH_PANGOLIN
         // Update drawer
         mpFrameDrawer->Update(this);
-
+#endif
         // If tracking were good, check if we insert a keyframe
         if(bOK)
         {
@@ -430,9 +439,9 @@ void Tracking::Track()
             }
             else
                 mVelocity = cv::Mat();
-
+#ifdef ORBSLAM_WITH_PANGOLIN
             mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
-
+#endif
             // Clean VO matches
             for(int i=0; i<mCurrentFrame.N; i++)
             {
@@ -553,9 +562,9 @@ void Tracking::StereoInitialization()
         mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
 
         mpMap->mvpKeyFrameOrigins.push_back(pKFini);
-
+#ifdef ORBSLAM_WITH_PANGOLIN
         mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
-
+#endif
         mState=OK;
     }
 }
@@ -729,7 +738,9 @@ void Tracking::CreateInitialMapMonocular()
 
     mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
 
+#ifdef ORBSLAM_WITH_PANGOLIN
     mpMapDrawer->SetCurrentCameraPose(pKFcur->GetPose());
+#endif
 
     mpMap->mvpKeyFrameOrigins.push_back(pKFini);
 
@@ -1505,12 +1516,14 @@ void Tracking::Reset()
 {
 
     cout << "System Reseting" << endl;
+#ifdef ORBSLAM_WITH_PANGOLIN
     if(mpViewer)
     {
         mpViewer->RequestStop();
         while(!mpViewer->isStopped())
             usleep(3000);
     }
+#endif
 
     // Reset Local Mapping
     cout << "Reseting Local Mapper...";
@@ -1544,9 +1557,10 @@ void Tracking::Reset()
     mlpReferences.clear();
     mlFrameTimes.clear();
     mlbLost.clear();
-
+#ifdef ORBSLAM_WITH_PANGOLIN
     if(mpViewer)
         mpViewer->Release();
+#endif
 }
 
 void Tracking::ChangeCalibration(const string &strSettingPath)
