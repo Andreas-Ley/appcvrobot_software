@@ -30,10 +30,7 @@ class CameraSystem : public Subsystem
 
         virtual void operateSlow(float dt) { 
             std::lock_guard<std::mutex> lock(m_mutex);
-            auto a = std::chrono::steady_clock::now();
             m_videoCapture >> m_lastFrame;
-            auto b = std::chrono::steady_clock::now();
-            std::cout << "Capturing frame took " << std::chrono::duration_cast<std::chrono::duration<double> >(b - a).count() << " seconds" << std::endl;;   
         }
         
         cv::Mat getLastFrame() {
@@ -117,17 +114,20 @@ class OrbSLAMSystem : public Subsystem
                 if ((x < 0) || (x >= width) ||
                     (y < 0) || (y >= height)) continue;
                 
-                unsigned color = 128 + std::min<int>(127, numObs * 20);
-                image.at<cv::Vec3b>(y, x)[0] = 
-                image.at<cv::Vec3b>(y, x)[1] = 
-                image.at<cv::Vec3b>(y, x)[2] = color;
+                unsigned color_r = 128 + std::min<int>(127, numObs * 20);
+                unsigned color_g = 128 + std::min<int>(127, pos[1] * 200);
+                image.at<cv::Vec3b>(y, x)[0] = color_r;
+                image.at<cv::Vec3b>(y, x)[1] = color_g;
+                image.at<cv::Vec3b>(y, x)[2] = 0;
+                /*
                 cv::line(image,
                             cv::Point(x, y),
-                            cv::Point(x + imgNormal[0] * 5, y + imgNormal[0] * 5),
+                            cv::Point(x + imgNormal[0] * 5, y + imgNormal[1] * 5),
                             cv::Scalar( 128, 0, 0 ),
                             1,
                             cv::LINE_4);
-                
+
+                */
             }
             
             {
