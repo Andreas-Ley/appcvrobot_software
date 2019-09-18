@@ -318,6 +318,8 @@ int main()
             break;
             case ' ':
                 slam->renderMap("map.png");
+                cv::Mat camImg = cameraSystem->getLastFrame();
+                cv::imwrite("camera.png", camImg);
             break;
         }
     }
