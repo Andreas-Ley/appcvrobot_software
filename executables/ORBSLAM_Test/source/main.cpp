@@ -69,10 +69,10 @@ class OrbSLAMSystem : public Subsystem
             double timestamp = std::chrono::duration_cast<std::chrono::duration<double> >(t - m_startTime).count();
 
             
-            auto a = std::chrono::steady_clock::now();
+//            auto a = std::chrono::steady_clock::now();
             m_lastEstimatedPose = m_slam.TrackMonocular(m_camera.getLastFrameSameThread(), timestamp);
-            auto b = std::chrono::steady_clock::now();
-            std::cout << "SLAM.TrackMonocular frame took " << std::chrono::duration_cast<std::chrono::duration<double> >(b - a).count() << " seconds" << std::endl;
+//            auto b = std::chrono::steady_clock::now();
+//            std::cout << "SLAM.TrackMonocular frame took " << std::chrono::duration_cast<std::chrono::duration<double> >(b - a).count() << " seconds" << std::endl;
         }
         
         cv::Mat getLastPose() {
@@ -141,8 +141,9 @@ class OrbSLAMSystem : public Subsystem
                 camPoints[0] = Eigen::Vector2f(pose.at<float>(0, 3), pose.at<float>(2, 3));
                 float angle = std::atan2(-pose.at<float>(2, 0), -pose.at<float>(2, 2));
                 float size = 0.1f;
-                camPoints[1] = camPoints[0] + Eigen::Vector2f(std::sin(angle - 0.1f) * size, std::cos(angle - 0.1f) * size);
-                camPoints[2] = camPoints[0] + Eigen::Vector2f(std::sin(angle + 0.1f) * size, std::cos(angle + 0.1f) * size);
+                float fov_half = 160 / 2.0f / 180.0f * M_PI;
+                camPoints[1] = camPoints[0] + Eigen::Vector2f(-std::sin(angle - fov_half) * size, -std::cos(angle - fov_half) * size);
+                camPoints[2] = camPoints[0] + Eigen::Vector2f(-std::sin(angle + fov_half) * size, -std::cos(angle + fov_half) * size);
                 
                 Eigen::Vector2f camImgPoints[3];                
                 for (unsigned i = 0; i < 3; i++)
@@ -300,7 +301,11 @@ int main()
         int c = std::getchar();
         switch (c) {
             case 'a':
-                policy->addWaypoint();
+                try {
+                    policy->addWaypoint();
+                } catch (const std::exception &e) {
+                    std::cout << e.what() << std::endl;
+                }
             break;
             case 'w':
                 policy->drive();
