@@ -43,14 +43,17 @@ class Robot
         inline DrivePolicy* getDrivePolicy() { return m_drivePolicy; }
     protected:
         std::chrono::duration<long int, std::micro> m_threadTimeStep = std::chrono::duration<long int, std::micro>(10'000);
+        std::chrono::duration<long int, std::micro> m_threadTimeStepSlow = std::chrono::duration<long int, std::micro>(100'000);
         
         DrivePolicy* m_drivePolicy = nullptr;
         std::list<std::unique_ptr<Subsystem>> m_subsystems;
         
         std::atomic_bool m_terminate;
         std::thread m_thread;
+        std::thread m_threadSlow;
         
         void threadBody();
+        void threadBodySlow();
 
 
         Robot();

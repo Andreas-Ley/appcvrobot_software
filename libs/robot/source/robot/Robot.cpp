@@ -39,12 +39,14 @@ Robot::Robot()
     
     m_terminate.store(false);
     m_thread = std::thread(std::bind(&Robot::threadBody, this));
+    m_threadSlow = std::thread(std::bind(&Robot::threadBodySlow, this));
 }
 
 Robot::~Robot()
 {
     m_terminate.store(true);
     m_thread.join();
+    m_threadSlow.join();
     
     for (auto &s : m_subsystems)
         s->fullStop();
@@ -62,6 +64,7 @@ void Robot::addSubsystem(std::unique_ptr<Subsystem> subsystem)
         
         m_drivePolicy = dp;
     }
+    // todo: make thread safe!!
     m_subsystems.push_back(std::move(subsystem));
 }
 
@@ -88,3 +91,25 @@ void Robot::threadBody()
     }
 }
 
+void Robot::threadBodySlow()
+{
+    auto lastStart = std::chrono::high_resolution_clock::now();
+    std::this_thread::sleep_for(m_threadTimeStepSlow);
+    
+    while (!m_terminate.load()) {
+        auto iterStart = std::chrono::high_resolution_clock::now();
+        auto deltaT = iterStart - lastStart;
+        lastStart = iterStart;
+        
+        float dt = std::chrono::duration_cast<std::chrono::microseconds>(deltaT).count() * 1e-6f;
+        
+        for (auto &s : m_subsystems)
+            s->operateSlow(dt);
+        
+        auto iterEnd = std::chrono::high_resolution_clock::now();
+        auto elapsed = iterEnd - iterStart;
+        if (elapsed < m_threadTimeStepSlow) {
+            std::this_thread::sleep_for(m_threadTimeStepSlow - elapsed);
+        }
+    }
+}

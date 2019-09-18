@@ -29,6 +29,7 @@ class Subsystem
 
         virtual void fullStop() { }
         virtual void operate(float dt) { }
+        virtual void operateSlow(float dt) { }
 };
 
 #endif // SUBSYSTEM_H

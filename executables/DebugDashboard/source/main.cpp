@@ -54,7 +54,7 @@ int main()
         }
     }
     
-#else
+#elif 1
     bool shutdown = false;
     while (!shutdown) {
         int c = std::getchar();
@@ -94,7 +94,6 @@ int main()
             break;
         }
     }
-    
 #endif
 
     return 0;
