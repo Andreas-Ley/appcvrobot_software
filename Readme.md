@@ -61,6 +61,8 @@ Optional: Configure various options
 
 ## Misc
 
+use raspi-config to change GPU memory to 256MB (otherwise can't record in high resolutions)
+
     v4l2-ctl -L
 
 Rotate, but breaks calibration:
@@ -78,4 +80,10 @@ not sure if it helps with exposure times
     
     v4l2-ctl -c video_bitrate=25000000
     
+    v4l2-ctl --list-formats-ext
+    v4l2-ctl --get-fmt-video
+    v4l2-ctl --set-fmt-video=width=640,height=480,pixelformat=1
+
+    v4l2-ctl --set-fmt-video=width=1920,height=1080,pixelformat=4
+
 
