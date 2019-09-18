@@ -104,8 +104,8 @@ class OrbSLAMSystem : public Subsystem
                 cv::Mat pos = p->GetWorldPos();
                 cv::Mat normal = p->GetNormal();
                 
-                Eigen::Vector2f imgPos = world2imageOffset + world2imageScale * Eigen::Vector2f(pos.at<float>(0), pos.at<float>(1));
-                Eigen::Vector2f imgNormal = world2imageScale * Eigen::Vector2f(normal.at<float>(0), normal.at<float>(1));
+                Eigen::Vector2f imgPos = world2imageOffset + world2imageScale * Eigen::Vector2f(pos.at<float>(0), pos.at<float>(2));
+                Eigen::Vector2f imgNormal = world2imageScale * Eigen::Vector2f(normal.at<float>(0), normal.at<float>(2));
                 imgNormal.normalize();
                 
                 int x = imgPos[0] + 0.5f;
@@ -115,7 +115,7 @@ class OrbSLAMSystem : public Subsystem
                     (y < 0) || (y >= height)) continue;
                 
                 unsigned color_r = 128 + std::min<int>(127, numObs * 20);
-                unsigned color_g = 128 + std::min<int>(127, pos[1] * 200);
+                unsigned color_g = 128 + std::min<int>(127, pos.at<float>(1) * 200);
                 image.at<cv::Vec3b>(y, x)[0] = color_r;
                 image.at<cv::Vec3b>(y, x)[1] = color_g;
                 image.at<cv::Vec3b>(y, x)[2] = 0;
