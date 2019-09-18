@@ -21,6 +21,9 @@
 
 #include "Subsystem.h"
 
+#include <atomic>
+#include <chrono>
+
 /**
  * @todo write docs
  */
@@ -28,12 +31,16 @@ class DrivePolicy : public Subsystem
 {
     public:
         enum {
-            GPIO_PIN_PWM_LEFT = 12,//18,
-            GPIO_PIN_DIRECTION_A_LEFT = 6,//17,
-            GPIO_PIN_DIRECTION_B_LEFT = 19,//22,
-            GPIO_PIN_PWM_RIGHT = 13,//27,
-            GPIO_PIN_DIRECTION_A_RIGHT = 16,//23,
-            GPIO_PIN_DIRECTION_B_RIGHT = 20,//24,
+            GPIO_PIN_PWM_LEFT = 12,
+            GPIO_PIN_DIRECTION_A_LEFT = 6,
+            GPIO_PIN_DIRECTION_B_LEFT = 19,
+            GPIO_PIN_PWM_RIGHT = 13,
+            GPIO_PIN_DIRECTION_A_RIGHT = 16,
+            GPIO_PIN_DIRECTION_B_RIGHT = 20,
+            GPIO_PIN_ENCODER_LEFT = 10,
+            GPIO_PIN_ENCODER_RIGHT = 24,
+            
+            WHEEL_ENCODER_INTERVAL = 300,
         };
         
         DrivePolicy();
@@ -41,9 +48,19 @@ class DrivePolicy : public Subsystem
         
         virtual void fullStop() override;
         virtual void setDesiredWheelSpeed(float left, float right) = 0;
+        
+        virtual void operate(float dt) override;
+        
+        void wheelEncoderTrigger(int event, int level, std::uint32_t tick);
     protected:
+        std::chrono::time_point<std::chrono::steady_clock> m_lastWheelEncoderEvaluation;
         
         void outputDrive(float left, float right);
+        
+        std::atomic<unsigned> m_encoderTriggerLeft = std::atomic<unsigned>(0);
+        std::atomic<unsigned> m_encoderTriggerRight = std::atomic<unsigned>(0);
+        std::atomic<float> m_encoderFrequencyLeft = std::atomic<float>(0.0f);
+        std::atomic<float> m_encoderFrequencyRight = std::atomic<float>(0.0f);
 };
 
 #endif // DRIVEPOLICY_H

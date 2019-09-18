@@ -1,12 +1,12 @@
 #include <robot/Robot.h>
-#include <robot/DrivePolicyAccLimited.h>
+#include <robot/DrivePolicyEncoderPID.h>
 
 #include <iostream>
 #include <cstdio>
 
 int main()
 {
-    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyAccLimited()));
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyEncoderPID()));
     
 #if 0
     float left = 0.0f;
@@ -61,32 +61,32 @@ int main()
         switch (c) {
             case 'w':
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(1.0f, 1.0f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{500});
+                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case 's':
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(-1.0f, -1.0f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{500});
+                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case 'q':
-                Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.9f, 1.0f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{500});
+                Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.8f, 1.0f);
+                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case 'e':
-                Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(1.0f, 0.9f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{500});
+                Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(1.0f, 0.8f);
+                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case 'a':
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(-0.4f, 0.4f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{500});
+                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case 'd':
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.4f, -0.4f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{500});
+                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case ' ':

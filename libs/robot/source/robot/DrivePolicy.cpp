@@ -27,6 +27,12 @@
 #include <utility>
 #include <stdexcept>
 
+
+void wheelEncoderTrigger(int event, int level, std::uint32_t tick, void *userdata)
+{
+    ((DrivePolicy*)userdata)->wheelEncoderTrigger(event, level, tick);
+}
+
 DrivePolicy::DrivePolicy()
 {
 #ifndef BUILD_WITH_ROBOT_STUBS
@@ -39,56 +45,50 @@ DrivePolicy::DrivePolicy()
     
     gpioSetPWMfrequency(GPIO_PIN_PWM_LEFT, 2'000); 
     gpioSetPWMfrequency(GPIO_PIN_PWM_RIGHT, 2'000); 
+
+    gpioSetMode(GPIO_PIN_ENCODER_LEFT, PI_INPUT);
+    gpioSetMode(GPIO_PIN_ENCODER_RIGHT, PI_INPUT);
+    
+    gpioSetAlertFuncEx(GPIO_PIN_ENCODER_LEFT, &wheelEncoderTrigger, this);
+    gpioSetAlertFuncEx(GPIO_PIN_ENCODER_RIGHT, &wheelEncoderTrigger, this);
 #endif
+    
+    m_lastWheelEncoderEvaluation = std::chrono::steady_clock::now();
 }
+
+
+void DrivePolicy::wheelEncoderTrigger(int event, int level, uint32_t tick)
+{
+    if ((level == 0) || (level == 0)) { // falling or rising edge
+        if (event == GPIO_PIN_ENCODER_LEFT)
+            m_encoderTriggerLeft++;
+        if (event == GPIO_PIN_ENCODER_RIGHT)
+            m_encoderTriggerRight++;
+    }
+}
+
+void DrivePolicy::operate(float dt)
+{
+    auto timeSinceLastWheelEncoderEval = m_lastWheelEncoderEvaluation - std::chrono::steady_clock::now();
+    if (timeSinceLastWheelEncoderEval > std::chrono::milliseconds(WHEEL_ENCODER_INTERVAL)) {
+        m_lastWheelEncoderEvaluation = std::chrono::steady_clock::now();
+        unsigned ticksLeft = m_encoderTriggerLeft.exchange(0);
+        unsigned ticksRight = m_encoderTriggerRight.exchange(0);
+        
+        m_encoderFrequencyLeft.store(ticksLeft / (float) WHEEL_ENCODER_INTERVAL * 1e3f);
+        m_encoderFrequencyRight.store(ticksRight / (float) WHEEL_ENCODER_INTERVAL * 1e3f);
+    }
+    
+}
+
 
 void DrivePolicy::fullStop()
 {
     outputDrive(0.0f, 0.0f);
 }
 
-namespace {
-
-const unsigned calibrationCurveLeftMotor_inputOutputPairsSize = 6;
-const std::pair<float, float> calibrationCurveLeftMotor_inputOutputPairs[calibrationCurveLeftMotor_inputOutputPairsSize] = {
-    {0.0f, 0.0f},
-    {0.5f, 0.42f},
-    {0.6f, 0.54f},
-    {0.7f, 0.58f},
-    {0.8f, 0.68f},
-    {1.0f, 0.985f},
-};
-
-float calibrate(float v) {
-    float absv = std::abs(v);
-    if (absv >= 1.0f)
-        return std::copysign(1.0f, v);
-    
-    for (unsigned i = 1; i < calibrationCurveLeftMotor_inputOutputPairsSize; i++) {
-        if (absv < calibrationCurveLeftMotor_inputOutputPairs[i].first) {
-            float lambda = (absv - calibrationCurveLeftMotor_inputOutputPairs[i-1].first) / (calibrationCurveLeftMotor_inputOutputPairs[i].first - calibrationCurveLeftMotor_inputOutputPairs[i-1].first);
-            float y = calibrationCurveLeftMotor_inputOutputPairs[i-1].second * (1.0f - lambda) + calibrationCurveLeftMotor_inputOutputPairs[i].second * lambda;
-            return std::copysign(y, v);
-        }
-    }
-    
-    throw std::runtime_error("Reached unreachable code!");
-}
-
-}
-
 void DrivePolicy::outputDrive(float left, float right)
 {
-    const float minPwm = 0.4f;
-
-    if (left != 0.0f)
-        left = std::copysign(minPwm, left) + left * (1.0f - minPwm);
-
-    if (right != 0.0f)
-        right = std::copysign(minPwm, right) + right * (1.0f - minPwm);
-    
-    left = calibrate(left);
-
 #ifndef BUILD_WITH_ROBOT_STUBS
     if (left > 0.0f) {
         gpioWrite(GPIO_PIN_DIRECTION_A_LEFT, 1);

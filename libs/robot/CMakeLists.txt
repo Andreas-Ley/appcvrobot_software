@@ -16,6 +16,8 @@ add_library(robot STATIC
     source/robot/DrivePolicyAccLimited.h
     source/robot/DrivePolicyDirect.cpp
     source/robot/DrivePolicyDirect.h
+    source/robot/DrivePolicyEncoderPID.cpp
+    source/robot/DrivePolicyEncoderPID.h
 )
 
 set(data_files 
