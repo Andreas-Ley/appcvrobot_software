@@ -30,7 +30,7 @@
 class DrivePolicyEncoderPID : public DrivePolicy
 {
     public:
-        const float MAX_TICKS_PER_SECOND = 40.0f; // 60 RPM
+        const float MAX_TICKS_PER_SECOND = 80.0f; // 120 RPM
         
         virtual ~DrivePolicyEncoderPID() = default;
         
@@ -44,8 +44,8 @@ class DrivePolicyEncoderPID : public DrivePolicy
             float integrator = 0.0f;
             float lastValue = 0.0f;
             
-            float c_p = 0.3f;
-            float c_i = 0.2f;
+            float c_p = 0.6f;
+            float c_i = 0.01f;
             float c_d = 2.0f;
             
             void fullStop();

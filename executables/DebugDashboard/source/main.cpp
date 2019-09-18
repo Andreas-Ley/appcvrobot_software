@@ -61,17 +61,17 @@ int main()
         switch (c) {
             case 'w':
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(1.0f, 1.0f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
+                std::this_thread::sleep_for(std::chrono::milliseconds{5000});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case 's':
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(-1.0f, -1.0f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
+                std::this_thread::sleep_for(std::chrono::milliseconds{5000});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case 'q':
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.8f, 1.0f);
-                std::this_thread::sleep_for(std::chrono::milliseconds{1500});
+                std::this_thread::sleep_for(std::chrono::milliseconds{5000});
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
             break;
             case 'e':
