@@ -28,7 +28,7 @@
 #include <stdexcept>
 
 
-void wheelEncoderTrigger(int event, int level, std::uint32_t tick, void *userdata)
+void wheelEncoderTriggerCallback(int event, int level, std::uint32_t tick, void *userdata)
 {
     ((DrivePolicy*)userdata)->wheelEncoderTrigger(event, level, tick);
 }
@@ -49,8 +49,8 @@ DrivePolicy::DrivePolicy()
     gpioSetMode(GPIO_PIN_ENCODER_LEFT, PI_INPUT);
     gpioSetMode(GPIO_PIN_ENCODER_RIGHT, PI_INPUT);
     
-    gpioSetAlertFuncEx(GPIO_PIN_ENCODER_LEFT, &wheelEncoderTrigger, this);
-    gpioSetAlertFuncEx(GPIO_PIN_ENCODER_RIGHT, &wheelEncoderTrigger, this);
+    gpioSetAlertFuncEx(GPIO_PIN_ENCODER_LEFT, &wheelEncoderTriggerCallback, this);
+    gpioSetAlertFuncEx(GPIO_PIN_ENCODER_RIGHT, &wheelEncoderTriggerCallback, this);
 #endif
     
     m_lastWheelEncoderEvaluation = std::chrono::steady_clock::now();
