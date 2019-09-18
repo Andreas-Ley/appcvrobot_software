@@ -19,6 +19,7 @@
 #include "DrivePolicyEncoderPID.h"
 
 #include <cmath>
+#include <iostream>
 
 void DrivePolicyEncoderPID::getCurrentWheelSpeeds(float &left, float &right)
 {
@@ -35,13 +36,38 @@ void DrivePolicyEncoderPID::fullStop()
 
 void DrivePolicyEncoderPID::operate(float dt)
 {
+	DrivePolicy::operate(dt);
+	
     float left, right;
     float d_left = m_desiredSpeedLeft.load();
     float d_right = m_desiredSpeedRight.load();
-    m_pidLeft.operate(d_left * MAX_TICKS_PER_SECOND, m_encoderFrequencyRight.load(), left, dt);
-    m_pidRight.operate(d_right * MAX_TICKS_PER_SECOND, m_encoderFrequencyLeft.load(), right, dt);
-    outputDrive(std::copysign(left, d_left), std::copysign(right, d_right));
+    m_pidLeft.operate(std::abs(d_left) * MAX_TICKS_PER_SECOND, m_encoderFrequencyLeft.load(), left, dt);
+    m_pidRight.operate(std::abs(d_right) * MAX_TICKS_PER_SECOND, m_encoderFrequencyRight.load(), right, dt);
+    left = std::max(left, 0.0f);
+    right = std::max(right, 0.0f);
+    left = std::copysign(left, d_left) / MAX_TICKS_PER_SECOND;
+    right = std::copysign(right, d_right) / MAX_TICKS_PER_SECOND;
+std::cout << "PID: " << left << " " << right << std::endl;
+std::cout << "left desired actual: " << d_left << " " << m_encoderFrequencyLeft.load()/MAX_TICKS_PER_SECOND << std::endl;
+
+	if (d_left == 0.0f) {
+		m_pidLeft.fullStop();
+		left = 0.0f;
+	}
+	if (d_right == 0.0f) {
+		m_pidRight.fullStop();
+		right = 0.0f;
+	}
+
+    outputDrive(left, right);
 }
+
+void DrivePolicyEncoderPID::PID::fullStop() 
+{
+	integrator = 0.0f;
+	lastValue = 0.0f;
+}
+
 
 void DrivePolicyEncoderPID::PID::operate(float desired, float actual, float &control, float dt)
 {

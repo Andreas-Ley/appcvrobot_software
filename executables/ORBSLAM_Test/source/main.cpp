@@ -1,5 +1,5 @@
 #include <robot/Robot.h>
-#include <robot/DrivePolicyAccLimited.h>
+#include <robot/DrivePolicyDirect.h>
 
 #include <System.h>
 
@@ -11,6 +11,12 @@
 #include <chrono>
 #include <iostream>
 #include <cstdio>
+
+
+
+std::vector<Eigen::Vector2f> waypoints;
+Eigen::Vector2f target(0.0f, 0.0f);
+
 
 class CameraSystem : public Subsystem
 {
@@ -86,90 +92,118 @@ class OrbSLAMSystem : public Subsystem
         }
         
         void renderMap(const char *filename) {
-            const std::vector<ORB_SLAM2::MapPoint*> vpMPs = m_slam.getMap()->GetAllMapPoints();
-            const std::vector<ORB_SLAM2::MapPoint*> vpRefMPs = m_slam.getMap()->GetReferenceMapPoints();
-            
-            unsigned width = 1024;
-            unsigned height = 1024;
-            cv::Mat image = cv::Mat::zeros(width, height, CV_8UC3 );
-            
-            Eigen::Matrix2f world2imageScale;
-            world2imageScale.setIdentity();
-            world2imageScale *= width/4.0f;
-            Eigen::Vector2f world2imageOffset(width/2, height/2);
-            
-            for (auto p : vpMPs) {
-                if (p->isBad()) continue;
-                unsigned numObs = p->Observations();
-                cv::Mat pos = p->GetWorldPos();
-                cv::Mat normal = p->GetNormal();
+            if (m_slam.getMap() != nullptr) {
+                const std::vector<ORB_SLAM2::MapPoint*> vpMPs = m_slam.getMap()->GetAllMapPoints();
+                const std::vector<ORB_SLAM2::MapPoint*> vpRefMPs = m_slam.getMap()->GetReferenceMapPoints();
                 
-                Eigen::Vector2f imgPos = world2imageOffset + world2imageScale * Eigen::Vector2f(pos.at<float>(0), pos.at<float>(2));
-                Eigen::Vector2f imgNormal = world2imageScale * Eigen::Vector2f(normal.at<float>(0), normal.at<float>(2));
-                imgNormal.normalize();
+                unsigned width = 1024;
+                unsigned height = 1024;
+                cv::Mat image = cv::Mat::zeros(width, height, CV_8UC3 );
                 
-                int x = imgPos[0] + 0.5f;
-                int y = imgPos[1] + 0.5f;
+                Eigen::Matrix2f world2imageScale;
+                world2imageScale.setIdentity();
+                world2imageScale *= width/4.0f;
+                Eigen::Vector2f world2imageOffset(width/2, height/2);
                 
-                if ((x < 0) || (x >= width) ||
-                    (y < 0) || (y >= height)) continue;
-                
-                unsigned color_r = 128 + std::min<int>(127, numObs * 20);
-                unsigned color_g = 128 + std::min<int>(127, pos.at<float>(1) * 200);
-                image.at<cv::Vec3b>(y, x)[0] = color_r;
-                image.at<cv::Vec3b>(y, x)[1] = color_g;
-                image.at<cv::Vec3b>(y, x)[2] = 0;
-                /*
-                cv::line(image,
-                            cv::Point(x, y),
-                            cv::Point(x + imgNormal[0] * 5, y + imgNormal[1] * 5),
-                            cv::Scalar( 128, 0, 0 ),
+                for (auto p : vpMPs) {
+                    if (p->isBad()) continue;
+                    unsigned numObs = p->Observations();
+                    cv::Mat pos = p->GetWorldPos();
+                    cv::Mat normal = p->GetNormal();
+                    
+                    Eigen::Vector2f imgPos = world2imageOffset + world2imageScale * Eigen::Vector2f(pos.at<float>(0), pos.at<float>(2));
+                    Eigen::Vector2f imgNormal = world2imageScale * Eigen::Vector2f(normal.at<float>(0), normal.at<float>(2));
+                    imgNormal.normalize();
+                    
+                    int x = imgPos[0] + 0.5f;
+                    int y = imgPos[1] + 0.5f;
+                    
+                    if ((x < 0) || (x >= width) ||
+                        (y < 0) || (y >= height)) continue;
+                    
+                    unsigned color_r = 128 + std::min<int>(127, numObs * 20);
+                    unsigned color_g = 128 + std::min<int>(127, pos.at<float>(1) * 200);
+                    image.at<cv::Vec3b>(y, x)[0] = color_r;
+                    image.at<cv::Vec3b>(y, x)[1] = color_g;
+                    image.at<cv::Vec3b>(y, x)[2] = 0;
+                    /*
+                    cv::line(image,
+                                cv::Point(x, y),
+                                cv::Point(x + imgNormal[0] * 5, y + imgNormal[1] * 5),
+                                cv::Scalar( 128, 0, 0 ),
+                                1,
+                                cv::LINE_4);
+
+                    */
+                }
+                unsigned circleSize = 0.3f * world2imageScale(0, 0);
+                Eigen::Vector2f targetImgPos = world2imageOffset + world2imageScale * target;
+                cv::circle(image,
+                            cv::Point(targetImgPos[0], targetImgPos[1]),
+                            circleSize,
+                            cv::Scalar( 0, 0, 256 ),
                             1,
                             cv::LINE_4);
 
-                */
-            }
-            
-            {
-                cv::Mat pose;
-                {
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    pose = m_lastEstimatedPose.clone();
+                for (auto p : waypoints) {
+                    Eigen::Vector2f imgP = world2imageOffset + world2imageScale * p;
+                    cv::circle(image,
+                                cv::Point(imgP[0], imgP[1]),
+                                circleSize,
+                                cv::Scalar( 0, 256, 256 ),
+                                1,
+                                cv::LINE_4);
                 }
 
-                Eigen::Vector2f camPoints[3];
-                camPoints[0] = Eigen::Vector2f(pose.at<float>(0, 3), pose.at<float>(2, 3));
-                float angle = std::atan2(-pose.at<float>(2, 0), -pose.at<float>(2, 2));
-                float size = 0.1f;
-                float fov_half = 160 / 2.0f / 180.0f * M_PI;
-                camPoints[1] = camPoints[0] + Eigen::Vector2f(-std::sin(angle - fov_half) * size, -std::cos(angle - fov_half) * size);
-                camPoints[2] = camPoints[0] + Eigen::Vector2f(-std::sin(angle + fov_half) * size, -std::cos(angle + fov_half) * size);
                 
-                Eigen::Vector2f camImgPoints[3];                
-                for (unsigned i = 0; i < 3; i++)
-                    camImgPoints[i] = world2imageOffset + world2imageScale * camPoints[i];
-                
-                cv::line(image,
-                            cv::Point(camImgPoints[0][0], camImgPoints[0][1]),
-                            cv::Point(camImgPoints[1][0], camImgPoints[1][1]),
-                            cv::Scalar( 0, 0, 128 ),
-                            1,
-                            cv::LINE_4);
-                cv::line(image,
-                            cv::Point(camImgPoints[0][0], camImgPoints[0][1]),
-                            cv::Point(camImgPoints[2][0], camImgPoints[2][1]),
-                            cv::Scalar( 0, 0, 128 ),
-                            1,
-                            cv::LINE_4);
-                cv::line(image,
-                            cv::Point(camImgPoints[2][0], camImgPoints[2][1]),
-                            cv::Point(camImgPoints[1][0], camImgPoints[1][1]),
-                            cv::Scalar( 0, 0, 128 ),
-                            1,
-                            cv::LINE_4);
+                {
+                    cv::Mat pose;
+                    {
+                        std::lock_guard<std::mutex> lock(m_mutex);
+                        pose = m_lastEstimatedPose.clone();
+                    }
+
+                    if (!pose.empty()) {
+                        Eigen::Vector2f camPoints[3];
+                        camPoints[0] = Eigen::Vector2f(-pose.at<float>(0, 3), -pose.at<float>(2, 3));
+                        float angle = std::atan2(-pose.at<float>(2, 0), -pose.at<float>(2, 2));
+                        float size = 0.1f;
+                        float fov_half = 160 / 2.0f / 180.0f * M_PI;
+                        camPoints[1] = camPoints[0] + Eigen::Vector2f(-std::sin(angle - fov_half) * size, -std::cos(angle - fov_half) * size);
+                        camPoints[2] = camPoints[0] + Eigen::Vector2f(-std::sin(angle + fov_half) * size, -std::cos(angle + fov_half) * size);
+                        
+                        Eigen::Vector2f camImgPoints[3];                
+                        for (unsigned i = 0; i < 3; i++)
+                            camImgPoints[i] = world2imageOffset + world2imageScale * camPoints[i];
+                        
+                        cv::line(image,
+                                    cv::Point(camImgPoints[0][0], camImgPoints[0][1]),
+                                    cv::Point(camImgPoints[1][0], camImgPoints[1][1]),
+                                    cv::Scalar( 0, 0, 128 ),
+                                    1,
+                                    cv::LINE_4);
+                        cv::line(image,
+                                    cv::Point(camImgPoints[0][0], camImgPoints[0][1]),
+                                    cv::Point(camImgPoints[2][0], camImgPoints[2][1]),
+                                    cv::Scalar( 0, 0, 128 ),
+                                    1,
+                                    cv::LINE_4);
+                        cv::line(image,
+                                    cv::Point(camImgPoints[2][0], camImgPoints[2][1]),
+                                    cv::Point(camImgPoints[1][0], camImgPoints[1][1]),
+                                    cv::Scalar( 0, 0, 128 ),
+                                    1,
+                                    cv::LINE_4);
+
+                    }
+                }
+                cv::imwrite(filename, image);
+            } else {
+                unsigned width = 1024;
+                unsigned height = 1024;
+                cv::Mat image = cv::Mat::zeros(width, height, CV_8UC3 );
+                cv::imwrite(filename, image);
             }
-            
-            cv::imwrite(filename, image);
         }
     protected:
         std::chrono::time_point<std::chrono::steady_clock> m_startTime;
@@ -199,17 +233,17 @@ class Policy : public Subsystem
         void stop() { 
             m_drive = false; 
         }
-        
+/*
         void addWaypoint() {
             cv::Mat pose = m_slam.getLastPoseSameThread();
             if (pose.empty())
                 throw std::runtime_error("No pose estimated!");
             
-            Eigen::Vector2f p(pose.at<float>(0, 3), pose.at<float>(2, 3));
+            Eigen::Vector2f p(-pose.at<float>(0, 3), -pose.at<float>(2, 3));
             m_waypoints.push_back(p);
             std::cout << "Added waypoint " << p.transpose() << std::endl;
         }
-
+*/
         virtual void operateSlow(float dt) { 
             if (!m_drive) {
                 Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
@@ -219,13 +253,15 @@ class Policy : public Subsystem
             cv::Mat &pose = m_slam.getLastPoseSameThread();
             
             if (pose.empty()) {
-                Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(-0.2f, -0.2f);
+                //Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(-0.2f, -0.2f);
+                stop();
+                std::cout << "Lost tracking!" << std::endl;
             } else {
+                Eigen::Vector2f location(-pose.at<float>(0, 3), -pose.at<float>(2, 3));
+                float angle = std::atan2(pose.at<float>(2, 0), pose.at<float>(2, 2));
                 
-                Eigen::Vector2f location(pose.at<float>(0, 3), pose.at<float>(2, 3));
-                float angle = std::atan2(-pose.at<float>(2, 0), -pose.at<float>(2, 2));
-                
-                Eigen::Vector2f targetLocation = m_waypoints[m_currentWaypoint];
+//                Eigen::Vector2f targetLocation = m_waypoints[m_currentWaypoint];
+                Eigen::Vector2f targetLocation = target;
                 
                 Eigen::Vector2f deltaTarget = targetLocation - location;
                 float distance = deltaTarget.norm();
@@ -243,7 +279,7 @@ class Policy : public Subsystem
                 
                 if (distance < 0.3f) {
                     std::cout << "######### reached target ###########" << std::endl;
-                    
+                    /*
                     if (m_waypoints.size() == 1) {
                         stop();
                     } else {
@@ -262,13 +298,14 @@ class Policy : public Subsystem
                                 m_forward = true;
                             }
                         }
-                    }
+                    }*/
+                    stop();
                 } else {
                     Eigen::Vector2f steer;
                     if (angleToTarget < 0.0) 
-                        steer = Eigen::Vector2f(0.5f, 0.5f - std::abs(angleToTarget) * 1.0f);
+                        steer = Eigen::Vector2f(0.4f, std::max(-0.2f, 0.4f - std::abs(angleToTarget) * 0.75f));
                     else
-                        steer = Eigen::Vector2f(0.5f - std::abs(angleToTarget) * 1.0f, 0.5f);
+                        steer = Eigen::Vector2f(std::max(-0.2f, 0.4f - std::abs(angleToTarget) * 0.75f), 0.4f);
                         
                     std::cout << "Steering :" << steer.transpose() << std::endl;
 
@@ -280,7 +317,6 @@ class Policy : public Subsystem
         bool m_drive = false;
         bool m_forward = true;
         int m_currentWaypoint = 0;
-        std::vector<Eigen::Vector2f> m_waypoints;
         
         OrbSLAMSystem &m_slam;
 };
@@ -288,7 +324,9 @@ class Policy : public Subsystem
 int main()
 {
     
-    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyAccLimited()));
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyDirect()));
+
+
     CameraSystem *cameraSystem;
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(cameraSystem = new CameraSystem()));
     OrbSLAMSystem *slam;
@@ -302,10 +340,21 @@ int main()
         switch (c) {
             case 'a':
                 try {
-                    policy->addWaypoint();
+                    cv::Mat pose = slam->getLastPoseSameThread();
+                    if (pose.empty())
+                        throw std::runtime_error("No pose estimated!");
+                    
+                    Eigen::Vector2f p(-pose.at<float>(0, 3), -pose.at<float>(2, 3));
+                    waypoints.push_back(p);
+
                 } catch (const std::exception &e) {
                     std::cout << e.what() << std::endl;
                 }
+            break;
+            case 't':
+                std::cin >> target[0];
+                std::cin >> target[1];
+                std::cout << "Target set to " << target.transpose() << std::endl;
             break;
             case 'w':
                 policy->drive();

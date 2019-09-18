@@ -37,8 +37,8 @@ class DrivePolicy : public Subsystem
             GPIO_PIN_PWM_RIGHT = 13,
             GPIO_PIN_DIRECTION_A_RIGHT = 16,
             GPIO_PIN_DIRECTION_B_RIGHT = 20,
-            GPIO_PIN_ENCODER_LEFT = 10,
-            GPIO_PIN_ENCODER_RIGHT = 24,
+            GPIO_PIN_ENCODER_LEFT = 4,
+            GPIO_PIN_ENCODER_RIGHT = 3,
             
             WHEEL_ENCODER_INTERVAL = 300,
         };

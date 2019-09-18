@@ -44,8 +44,8 @@ class DrivePolicyEncoderPID : public DrivePolicy
             float integrator = 0.0f;
             float lastValue = 0.0f;
             
-            float c_p = 1.0f;
-            float c_i = 0.1f;
+            float c_p = 0.3f;
+            float c_i = 0.2f;
             float c_d = 2.0f;
             
             void fullStop();

@@ -27,6 +27,7 @@
 #include <utility>
 #include <stdexcept>
 
+#include <iostream>
 
 void wheelEncoderTriggerCallback(int event, int level, std::uint32_t tick, void *userdata)
 {
@@ -59,7 +60,7 @@ DrivePolicy::DrivePolicy()
 
 void DrivePolicy::wheelEncoderTrigger(int event, int level, uint32_t tick)
 {
-    if ((level == 0) || (level == 0)) { // falling or rising edge
+    if ((level == 0) || (level == 1)) { // falling or rising edge
         if (event == GPIO_PIN_ENCODER_LEFT)
             m_encoderTriggerLeft++;
         if (event == GPIO_PIN_ENCODER_RIGHT)
@@ -69,11 +70,13 @@ void DrivePolicy::wheelEncoderTrigger(int event, int level, uint32_t tick)
 
 void DrivePolicy::operate(float dt)
 {
-    auto timeSinceLastWheelEncoderEval = m_lastWheelEncoderEvaluation - std::chrono::steady_clock::now();
+    auto timeSinceLastWheelEncoderEval = std::chrono::steady_clock::now() - m_lastWheelEncoderEvaluation;
     if (timeSinceLastWheelEncoderEval > std::chrono::milliseconds(WHEEL_ENCODER_INTERVAL)) {
+		std::cout << "Update frequencies" << std::endl;
         m_lastWheelEncoderEvaluation = std::chrono::steady_clock::now();
         unsigned ticksLeft = m_encoderTriggerLeft.exchange(0);
         unsigned ticksRight = m_encoderTriggerRight.exchange(0);
+		std::cout << "Update frequencies " << ticksLeft << " " << ticksRight << std::endl;
         
         m_encoderFrequencyLeft.store(ticksLeft / (float) WHEEL_ENCODER_INTERVAL * 1e3f);
         m_encoderFrequencyRight.store(ticksRight / (float) WHEEL_ENCODER_INTERVAL * 1e3f);
