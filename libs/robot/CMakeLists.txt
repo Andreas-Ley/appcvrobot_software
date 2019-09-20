@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 3.0)
 
+find_package( OpenCV REQUIRED )
 find_package(ImageMagick COMPONENTS Magick++ REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boost COMPONENTS system thread REQUIRED) 
@@ -18,6 +19,10 @@ add_library(robot STATIC
     source/robot/DrivePolicyDirect.h
     source/robot/DrivePolicyEncoderPID.cpp
     source/robot/DrivePolicyEncoderPID.h
+    source/robot/CameraSystem.cpp
+    source/robot/CameraSystem.h
+    source/robot/WifiCommunication.cpp
+    source/robot/WifiCommunication.h
 )
 
 set(data_files 
@@ -41,6 +46,7 @@ endif()
 
 
 target_include_directories(robot PUBLIC
+    ${OpenCV_INCLUDE_DIRS}
     ${ImageMagick_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
@@ -51,6 +57,7 @@ target_include_directories(robot INTERFACE
 )
 
 target_link_libraries(robot PUBLIC
+    ${OpenCV_LIBS} 
     ${ImageMagick_LIBRARIES}
     ${EIGEN3_LIBRARIES}
     ${Boost_LIBRARIES}

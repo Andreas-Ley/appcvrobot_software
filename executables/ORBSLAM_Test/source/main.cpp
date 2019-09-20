@@ -1,5 +1,8 @@
 #include <robot/Robot.h>
 #include <robot/DrivePolicyDirect.h>
+#include <robot/WifiCommunication.h>
+#include <robot/CameraSystem.h>
+
 
 #include <System.h>
 
@@ -18,46 +21,10 @@ std::vector<Eigen::Vector3f> waypoints;
 Eigen::Vector3f target(0.0f, 0.0f, 0.0f);
 
 
-class CameraSystem : public Subsystem
-{
-    public:
-        CameraSystem() {
-            system("v4l2-ctl -c iso_sensitivity_auto=0");
-            system("v4l2-ctl -c iso_sensitivity=4");
-            system("v4l2-ctl -c scene_mode=11");
-            system("v4l2-ctl -c video_bitrate=25000000");
-            system("v4l2-ctl --set-fmt-video=width=640,height=480,pixelformat=2");
-            if (!m_videoCapture.open(0)) {
-                throw std::runtime_error("Error opening video");
-            }
-        }
-        virtual ~CameraSystem() {
-        }
-
-        virtual void operateSlow(float dt) { 
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_videoCapture >> m_lastFrame;
-        }
-        
-        cv::Mat getLastFrame() {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            cv::Mat res = m_lastFrame.clone();
-            return res;
-        }
-        cv::Mat &getLastFrameSameThread() { return m_lastFrame; }
-    protected:
-        std::mutex m_mutex;
-        
-        cv::VideoCapture m_videoCapture;
-        cv::Mat m_lastFrame;
-};
-
-
-
 class OrbSLAMSystem : public Subsystem
 {
     public:
-        OrbSLAMSystem(CameraSystem &camera) :
+        OrbSLAMSystem(robot::CameraSystem &camera) :
                 m_camera(camera),
                 m_slam("Vocabulary/ORBvoc.txt", "../RPiCameraWide_640_480.yaml", ORB_SLAM2::System::MONOCULAR, true)
             {
@@ -76,7 +43,7 @@ class OrbSLAMSystem : public Subsystem
 
             
             auto a = std::chrono::steady_clock::now();
-            m_lastPoseValid = m_slam.TrackMonocular(m_camera.getLastFrameSameThread(), timestamp, m_lastEstimatedPose);
+            m_lastPoseValid = m_slam.TrackMonocular(m_camera.getCurrentFrame(), timestamp, m_lastEstimatedPose);
             auto b = std::chrono::steady_clock::now();
             std::cout << "SLAM.TrackMonocular frame took " << std::chrono::duration_cast<std::chrono::duration<double> >(b - a).count() << " seconds" << std::endl;
         }
@@ -214,7 +181,7 @@ class OrbSLAMSystem : public Subsystem
     protected:
         std::chrono::time_point<std::chrono::steady_clock> m_startTime;
         
-        CameraSystem &m_camera;
+        robot::CameraSystem &m_camera;
         std::mutex m_mutex;
         
         ORB_SLAM2::System m_slam;
@@ -334,13 +301,17 @@ int main()
     
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyDirect()));
 
+    robot::WifiCommunication *wifiCom;
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(wifiCom = new robot::WifiCommunication(1337)));
 
-    CameraSystem *cameraSystem;
-    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(cameraSystem = new CameraSystem()));
+    robot::CameraSystem *cameraSystem;
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(cameraSystem = new robot::CameraSystem(wifiCom, 500'000))); // 500kB/s
     OrbSLAMSystem *slam;
-    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(slam = new OrbSLAMSystem(*cameraSystem)));
     Policy *policy;
+    /*
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(slam = new OrbSLAMSystem(*cameraSystem)));
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(policy = new Policy(*slam)));
+    */
  
     bool shutdown = false;
     while (!shutdown) {
@@ -377,7 +348,7 @@ int main()
             break;
             case ' ':
                 slam->renderMap("map.png");
-                cv::Mat camImg = cameraSystem->getLastFrame();
+                cv::Mat camImg = cameraSystem->getCurrentFrame();
                 cv::imwrite("camera.png", camImg);
             break;
         }
