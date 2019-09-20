@@ -40,8 +40,6 @@ foreach(file ${data_files})
 endforeach(file)
 
 
-
-
 target_include_directories(orb_slam PUBLIC
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}

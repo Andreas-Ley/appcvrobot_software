@@ -91,6 +91,7 @@ add_library(g2o STATIC
     g2o/stuff/property.h       
 )
 
+target_compile_options(g2o PRIVATE "-Wno-deprecated-declarations")
 
 target_include_directories(g2o PUBLIC
     ${OpenCV_INCLUDE_DIRS}

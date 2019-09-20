@@ -51,7 +51,50 @@ public:
     static Eigen::Matrix<double,3,1> toVector3d(const cv::Point3f &cvPoint);
     static Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3);
 
+    template<unsigned rows, unsigned cols=1, typename type=float>
+    static Eigen::Matrix<type,rows,cols> toEigen(const cv::Mat &cvMat) {
+       Eigen::Matrix<type,rows,cols> result;
+        for (unsigned i = 0; i < rows; i++)
+            for (unsigned j = 0; j < cols; j++)
+                result(i, j) = cvMat.at<float>(i,j);
+        return result;
+    }
+
+    template<typename type=float>
+    static Eigen::Matrix<type,4,4> toEigen(const g2o::Sim3 &Sim3) {
+        Eigen::Matrix3d eigR = Sim3.rotation().toRotationMatrix();
+        Eigen::Vector3d eigt = Sim3.translation();
+        type s = Sim3.scale();
+
+        Eigen::Matrix<type,4,4> result = Eigen::Matrix<type,4,4>::Identity();
+        result.template block<3, 3>(0, 0) = s*eigR.cast<type>();
+        result.template block<3, 1>(0, 3) = eigt.cast<type>();
+        return result;
+    }
+    template<typename type=float>
+    static Eigen::Matrix<type,4,4> toEigen(const g2o::SE3Quat &SE3) {
+        Eigen::Matrix<double,4,4> eigMat = SE3.to_homogeneous_matrix();
+        return eigMat.cast<type>();
+    }
+
+    template<typename type=float>
+    static g2o::SE3Quat toSE3Quat(const Eigen::Matrix<type,4,4> &cvT) {
+        auto R = cvT.template block<3, 3>(0, 0);
+        auto t = cvT.template block<3, 1>(0, 3);
+        return g2o::SE3Quat(R.template cast<double>(), t.template cast<double>());
+    }
+
+
+    template<unsigned rows, unsigned cols=1, typename type=float>
+    static void fromEigen(cv::Mat &cvMat, const Eigen::Matrix<type,rows,cols> &mat) {
+        cvMat.create(rows, cols, CV_32F);
+        for (unsigned i = 0; i < rows; i++)
+            for (unsigned j = 0; j < cols; j++)
+                cvMat.at<float>(i,j) = mat(i, j);
+    }
+
     static std::vector<float> toQuaternion(const cv::Mat &M);
+    static std::vector<float> toQuaternion(const Eigen::Matrix3f &M);
 };
 
 }// namespace ORB_SLAM

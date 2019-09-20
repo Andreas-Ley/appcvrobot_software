@@ -54,13 +54,14 @@
 */
 
 
+#include "ORBextractor.h"
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
-
-#include "ORBextractor.h"
+#include <iostream>
 
 
 using namespace cv;
@@ -475,6 +476,7 @@ static void computeOrientation(const Mat& image, vector<KeyPoint>& keypoints, co
          keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
     {
         keypoint->angle = IC_Angle(image, keypoint->pt, umax);
+        //keypoint->angle = 0.0f;
     }
 }
 
@@ -537,7 +539,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
 }
 
 vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
-                                       const int &maxX, const int &minY, const int &maxY, const int &N, const int &level)
+                                       const int &maxX, const int &minY, const int &maxY, const int &N, const int &level) const
 {
     // Compute how many initial nodes   
     const int nIni = round(static_cast<float>(maxX-minX)/(maxY-minY));
@@ -768,6 +770,9 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
 
     const float W = 30;
 
+    std::vector<std::vector<cv::KeyPoint>> grided;
+    vector<cv::KeyPoint> vKeysCell;
+    vector<cv::KeyPoint> vToDistributeKeys;
     for (int level = 0; level < nlevels; ++level)
     {
         const int minBorderX = EDGE_THRESHOLD-3;
@@ -775,7 +780,7 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         const int maxBorderX = mvImagePyramid[level].cols-EDGE_THRESHOLD+3;
         const int maxBorderY = mvImagePyramid[level].rows-EDGE_THRESHOLD+3;
 
-        vector<cv::KeyPoint> vToDistributeKeys;
+        vToDistributeKeys.clear();
         vToDistributeKeys.reserve(nfeatures*10);
 
         const float width = (maxBorderX-minBorderX);
@@ -786,6 +791,7 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         const int wCell = ceil(width/nCols);
         const int hCell = ceil(height/nRows);
 
+#if 0
         for(int i=0; i<nRows; i++)
         {
             const float iniY =minBorderY+i*hCell;
@@ -827,12 +833,44 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
 
             }
         }
+#else
+        vKeysCell.clear();
+        FAST(mvImagePyramid[level].rowRange(minBorderY,maxBorderY).colRange(minBorderX,maxBorderX),
+             vKeysCell,minThFAST,true);
+
+        grided.clear();
+        grided.resize(nRows * nCols);
+        for (auto &g : grided)
+            g.reserve(20);
+
+        for (auto &kp : vKeysCell) {
+            int cellX = std::floor(kp.pt.x / wCell);
+            int cellY = std::floor(kp.pt.y / hCell);
+            cellX = std::min<int>(std::max<int>(cellX, 0), nCols-1);
+            cellY = std::min<int>(std::max<int>(cellY, 0), nRows-1);
+            grided[cellX + cellY * nCols].push_back(kp);
+        }
+        for (auto &g : grided) {
+            std::sort(g.begin(), g.end(), [](const cv::KeyPoint &left, const cv::KeyPoint &right)->bool {
+                return left.response > right.response;
+            });
+
+            for (unsigned i = 0; i < std::min<unsigned>(4, g.size()); i++) {
+//                std::cout << "Cell KP: " << i << "  " << g[i].response << " " << g[i].octave << std::endl;
+                vToDistributeKeys.push_back(g[i]);
+            }
+        }
+#endif
 
         vector<KeyPoint> & keypoints = allKeypoints[level];
+#if 0
         keypoints.reserve(nfeatures);
 
         keypoints = DistributeOctTree(vToDistributeKeys, minBorderX, maxBorderX,
                                       minBorderY, maxBorderY,mnFeaturesPerLevel[level], level);
+#else
+        keypoints = vToDistributeKeys;
+#endif
 
         const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
 

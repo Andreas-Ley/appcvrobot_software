@@ -27,6 +27,7 @@
 
 #include "KeyFrame.h"
 #include "ORBmatcher.h"
+#include "Converter.h"
 
 #include <DUtils/Random.h>
 
@@ -51,10 +52,10 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
     mvX3Dc1.reserve(mN1);
     mvX3Dc2.reserve(mN1);
 
-    cv::Mat Rcw1 = pKF1->GetRotation();
-    cv::Mat tcw1 = pKF1->GetTranslation();
-    cv::Mat Rcw2 = pKF2->GetRotation();
-    cv::Mat tcw2 = pKF2->GetTranslation();
+    auto Rcw1 = pKF1->GetRotation();
+    auto tcw1 = pKF1->GetTranslation();
+    auto Rcw2 = pKF2->GetRotation();
+    auto tcw2 = pKF2->GetTranslation();
 
     mvAllIndices.reserve(mN1);
 
@@ -91,10 +92,10 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
             mvpMapPoints2.push_back(pMP2);
             mvnIndices1.push_back(i1);
 
-            cv::Mat X3D1w = pMP1->GetWorldPos();
+            auto X3D1w = pMP1->GetWorldPos();
             mvX3Dc1.push_back(Rcw1*X3D1w+tcw1);
 
-            cv::Mat X3D2w = pMP2->GetWorldPos();
+            auto X3D2w = pMP2->GetWorldPos();
             mvX3Dc2.push_back(Rcw2*X3D2w+tcw2);
 
             mvAllIndices.push_back(idx);
@@ -151,8 +152,10 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
 
     vector<size_t> vAvailableIndices;
 
-    cv::Mat P3Dc1i(3,3,CV_32F);
-    cv::Mat P3Dc2i(3,3,CV_32F);
+    Eigen::Matrix3f P3Dc1i;
+    Eigen::Matrix3f P3Dc2i;
+
+cv::Mat P3Dc1i_, P3Dc2i_;
 
     int nCurrentIterations = 0;
     while(mnIterations<mRansacMaxIts && nCurrentIterations<nIterations)
@@ -169,14 +172,17 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
 
             int idx = vAvailableIndices[randi];
 
-            mvX3Dc1[idx].copyTo(P3Dc1i.col(i));
-            mvX3Dc2[idx].copyTo(P3Dc2i.col(i));
+            P3Dc1i.col(i) = mvX3Dc1[idx];
+            P3Dc2i.col(i) = mvX3Dc2[idx];
 
             vAvailableIndices[randi] = vAvailableIndices.back();
             vAvailableIndices.pop_back();
         }
 
-        ComputeSim3(P3Dc1i,P3Dc2i);
+Converter::fromEigen<3, 3, float>(P3Dc1i_, P3Dc1i);
+Converter::fromEigen<3, 3, float>(P3Dc2i_, P3Dc2i);
+
+        ComputeSim3(P3Dc1i_, P3Dc2i_);
 
         CheckInliers();
 
@@ -339,7 +345,7 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
 
 void Sim3Solver::CheckInliers()
 {
-    vector<cv::Mat> vP1im2, vP2im1;
+    vector<Eigen::Vector2f> vP1im2, vP2im1;
     Project(mvX3Dc2,vP2im1,mT12i,mK1);
     Project(mvX3Dc1,vP1im2,mT21i,mK2);
 
@@ -347,11 +353,11 @@ void Sim3Solver::CheckInliers()
 
     for(size_t i=0; i<mvP1im1.size(); i++)
     {
-        cv::Mat dist1 = mvP1im1[i]-vP2im1[i];
-        cv::Mat dist2 = vP1im2[i]-mvP2im2[i];
+        auto dist1 = mvP1im1[i]-vP2im1[i];
+        auto dist2 = vP1im2[i]-mvP2im2[i];
 
-        const float err1 = dist1.dot(dist1);
-        const float err2 = dist2.dot(dist2);
+        const float err1 = dist1.squaredNorm();
+        const float err2 = dist2.squaredNorm();
 
         if(err1<mvnMaxError1[i] && err2<mvnMaxError2[i])
         {
@@ -364,14 +370,14 @@ void Sim3Solver::CheckInliers()
 }
 
 
-cv::Mat Sim3Solver::GetEstimatedRotation()
+Eigen::Matrix3f Sim3Solver::GetEstimatedRotation()
 {
-    return mBestRotation.clone();
+    return Converter::toEigen<3, 3, float>(mBestRotation);
 }
 
-cv::Mat Sim3Solver::GetEstimatedTranslation()
+Eigen::Vector3f Sim3Solver::GetEstimatedTranslation()
 {
-    return mBestTranslation.clone();
+    return Converter::toEigen<3, 1, float>(mBestTranslation);
 }
 
 float Sim3Solver::GetEstimatedScale()
@@ -379,10 +385,10 @@ float Sim3Solver::GetEstimatedScale()
     return mBestScale;
 }
 
-void Sim3Solver::Project(const vector<cv::Mat> &vP3Dw, vector<cv::Mat> &vP2D, cv::Mat Tcw, cv::Mat K)
+void Sim3Solver::Project(const vector<Eigen::Vector3f> &vP3Dw, vector<Eigen::Vector2f> &vP2D, cv::Mat Tcw, cv::Mat K)
 {
-    cv::Mat Rcw = Tcw.rowRange(0,3).colRange(0,3);
-    cv::Mat tcw = Tcw.rowRange(0,3).col(3);
+    auto Rcw = Converter::toEigen<3, 3, float>(Tcw.rowRange(0,3).colRange(0,3));
+    auto tcw = Converter::toEigen<3, 1, float>(Tcw.rowRange(0,3).col(3));
     const float &fx = K.at<float>(0,0);
     const float &fy = K.at<float>(1,1);
     const float &cx = K.at<float>(0,2);
@@ -393,16 +399,16 @@ void Sim3Solver::Project(const vector<cv::Mat> &vP3Dw, vector<cv::Mat> &vP2D, cv
 
     for(size_t i=0, iend=vP3Dw.size(); i<iend; i++)
     {
-        cv::Mat P3Dc = Rcw*vP3Dw[i]+tcw;
-        const float invz = 1/(P3Dc.at<float>(2));
-        const float x = P3Dc.at<float>(0)*invz;
-        const float y = P3Dc.at<float>(1)*invz;
+        Eigen::Vector3f P3Dc = Rcw*vP3Dw[i]+tcw;
+        const float invz = 1/(P3Dc[2]);
+        const float x = P3Dc[0]*invz;
+        const float y = P3Dc[1]*invz;
 
-        vP2D.push_back((cv::Mat_<float>(2,1) << fx*x+cx, fy*y+cy));
+        vP2D.push_back(Eigen::Vector2f(fx*x+cx, fy*y+cy));
     }
 }
 
-void Sim3Solver::FromCameraToImage(const vector<cv::Mat> &vP3Dc, vector<cv::Mat> &vP2D, cv::Mat K)
+void Sim3Solver::FromCameraToImage(const vector<Eigen::Vector3f> &vP3Dc, vector<Eigen::Vector2f> &vP2D, cv::Mat K)
 {
     const float &fx = K.at<float>(0,0);
     const float &fy = K.at<float>(1,1);
@@ -414,11 +420,11 @@ void Sim3Solver::FromCameraToImage(const vector<cv::Mat> &vP3Dc, vector<cv::Mat>
 
     for(size_t i=0, iend=vP3Dc.size(); i<iend; i++)
     {
-        const float invz = 1/(vP3Dc[i].at<float>(2));
-        const float x = vP3Dc[i].at<float>(0)*invz;
-        const float y = vP3Dc[i].at<float>(1)*invz;
+        const float invz = 1/(vP3Dc[i][2]);
+        const float x = vP3Dc[i][0]*invz;
+        const float y = vP3Dc[i][1]*invz;
 
-        vP2D.push_back((cv::Mat_<float>(2,1) << fx*x+cx, fy*y+cy));
+        vP2D.push_back(Eigen::Vector2f(fx*x+cx, fy*y+cy));
     }
 }
 

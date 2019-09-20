@@ -3,8 +3,7 @@ project (Everything)
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-LIST(APPEND CMAKE_CXX_FLAGS "-march=native -ffast-math -Wall -pedantic -Wextra -std=c++17 -Wno-int-in-bool-context -Wno-class-memaccess -Wno-unused-parameter -Wno-deprecated-copy")
-
+LIST(APPEND CMAKE_CXX_FLAGS "-march=native -ffast-math -Wall -pedantic -Wextra -std=c++17 -DEIGEN_MAX_STATIC_ALIGN_BYTES=16 -Wno-int-in-bool-context -Wno-class-memaccess -Wno-unused-parameter -Wno-deprecated-copy")
 
 set(COMPILATION_HOSTNAME "andynotebook" CACHE STRING "To differentiate in code between computers for e.g. different paths")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCOMPILATION_HOSTNAME_${COMPILATION_HOSTNAME}")
@@ -34,5 +33,8 @@ add_subdirectory(extern/ORB_SLAM/)
 endif(BUILD_WITH_ORB_SLAM)
 
 add_subdirectory(libs/robot/)
+
 add_subdirectory(executables/DebugDashboard/)
+if(BUILD_WITH_ORB_SLAM)
 add_subdirectory(executables/ORBSLAM_Test/)
+endif(BUILD_WITH_ORB_SLAM)

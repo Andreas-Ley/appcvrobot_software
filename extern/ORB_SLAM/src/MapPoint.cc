@@ -29,33 +29,33 @@ namespace ORB_SLAM2
 long unsigned int MapPoint::nNextId=0;
 mutex MapPoint::mGlobalMutex;
 
-MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
+MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map* pMap):
     mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
     mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false),
     mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
 {
-    Pos.copyTo(mWorldPos);
-    mNormalVector = cv::Mat::zeros(3,1,CV_32F);
+    mWorldPos = Pos;
+    mNormalVector.setZero();
 
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
     mnId=nNextId++;
 }
 
-MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF):
+MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map* pMap, Frame* pFrame, const int &idxF):
     mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
     mnBALocalForKF(0), mnFuseCandidateForKF(0),mnLoopPointForKF(0), mnCorrectedByKF(0),
     mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(static_cast<KeyFrame*>(NULL)), mnVisible(1),
     mnFound(1), mbBad(false), mpReplaced(NULL), mpMap(pMap)
 {
-    Pos.copyTo(mWorldPos);
-    cv::Mat Ow = pFrame->GetCameraCenter();
+    mWorldPos = Pos;
+    Eigen::Vector3f Ow = pFrame->GetCameraCenter();
     mNormalVector = mWorldPos - Ow;
-    mNormalVector = mNormalVector/cv::norm(mNormalVector);
+    mNormalVector.normalize();
 
-    cv::Mat PC = Pos - Ow;
-    const float dist = cv::norm(PC);
+    Eigen::Vector3f PC = Pos - Ow;
+    const float dist = PC.norm();
     const int level = pFrame->mvKeysUn[idxF].octave;
     const float levelScaleFactor =  pFrame->mvScaleFactors[level];
     const int nLevels = pFrame->mnScaleLevels;
@@ -70,23 +70,23 @@ MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF
     mnId=nNextId++;
 }
 
-void MapPoint::SetWorldPos(const cv::Mat &Pos)
+void MapPoint::SetWorldPos(const Eigen::Vector3f &Pos)
 {
     unique_lock<mutex> lock2(mGlobalMutex);
     unique_lock<mutex> lock(mMutexPos);
-    Pos.copyTo(mWorldPos);
+    mWorldPos = Pos;
 }
 
-cv::Mat MapPoint::GetWorldPos()
+Eigen::Vector3f MapPoint::GetWorldPos()
 {
     unique_lock<mutex> lock(mMutexPos);
-    return mWorldPos.clone();
+    return mWorldPos;
 }
 
-cv::Mat MapPoint::GetNormal()
+Eigen::Vector3f MapPoint::GetNormal()
 {
     unique_lock<mutex> lock(mMutexPos);
-    return mNormalVector.clone();
+    return mNormalVector;
 }
 
 KeyFrame* MapPoint::GetReferenceKeyFrame()
@@ -331,7 +331,7 @@ void MapPoint::UpdateNormalAndDepth()
 {
     map<KeyFrame*,size_t> observations;
     KeyFrame* pRefKF;
-    cv::Mat Pos;
+    Eigen::Vector3f Pos;
     {
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
@@ -339,25 +339,26 @@ void MapPoint::UpdateNormalAndDepth()
             return;
         observations=mObservations;
         pRefKF=mpRefKF;
-        Pos = mWorldPos.clone();
+        Pos = mWorldPos;
     }
 
     if(observations.empty())
         return;
 
-    cv::Mat normal = cv::Mat::zeros(3,1,CV_32F);
+    Eigen::Vector3f normal;
+    normal.setZero();
     int n=0;
     for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
     {
         KeyFrame* pKF = mit->first;
-        cv::Mat Owi = pKF->GetCameraCenter();
-        cv::Mat normali = mWorldPos - Owi;
-        normal = normal + normali/cv::norm(normali);
+        Eigen::Vector3f Owi = pKF->GetCameraCenter();
+        Eigen::Vector3f normali = mWorldPos - Owi;
+        normal = normal + normali.normalized();
         n++;
     }
 
-    cv::Mat PC = Pos - pRefKF->GetCameraCenter();
-    const float dist = cv::norm(PC);
+    Eigen::Vector3f PC = Pos - pRefKF->GetCameraCenter();
+    const float dist = PC.norm();
     const int level = pRefKF->mvKeysUn[observations[pRefKF]].octave;
     const float levelScaleFactor =  pRefKF->mvScaleFactors[level];
     const int nLevels = pRefKF->mnScaleLevels;

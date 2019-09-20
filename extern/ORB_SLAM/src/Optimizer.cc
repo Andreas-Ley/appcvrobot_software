@@ -92,7 +92,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
         if(pMP->isBad())
             continue;
         g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
-        vPoint->setEstimate(Converter::toVector3d(pMP->GetWorldPos()));
+        vPoint->setEstimate(pMP->GetWorldPos().cast<double>());
         const int id = pMP->mnId+maxKFid+1;
         vPoint->setId(id);
         vPoint->setMarginalized(true);
@@ -199,12 +199,11 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
         g2o::SE3Quat SE3quat = vSE3->estimate();
         if(nLoopKF==0)
         {
-            pKF->SetPose(Converter::toCvMat(SE3quat));
+            pKF->SetPose(Converter::toEigen<float>(SE3quat));
         }
         else
         {
-            pKF->mTcwGBA.create(4,4,CV_32F);
-            Converter::toCvMat(SE3quat).copyTo(pKF->mTcwGBA);
+            pKF->mTcwGBA = Converter::toEigen<float>(SE3quat);
             pKF->mnBAGlobalForKF = nLoopKF;
         }
     }
@@ -223,13 +222,12 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
         if(nLoopKF==0)
         {
-            pMP->SetWorldPos(Converter::toCvMat(vPoint->estimate()));
+            pMP->SetWorldPos(vPoint->estimate().cast<float>());
             pMP->UpdateNormalAndDepth();
         }
         else
         {
-            pMP->mPosGBA.create(3,1,CV_32F);
-            Converter::toCvMat(vPoint->estimate()).copyTo(pMP->mPosGBA);
+            pMP->mPosGBA = vPoint->estimate().cast<float>();
             pMP->mnBAGlobalForKF = nLoopKF;
         }
     }
@@ -307,10 +305,10 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                 e->fy = pFrame->fy;
                 e->cx = pFrame->cx;
                 e->cy = pFrame->cy;
-                cv::Mat Xw = pMP->GetWorldPos();
-                e->Xw[0] = Xw.at<float>(0);
-                e->Xw[1] = Xw.at<float>(1);
-                e->Xw[2] = Xw.at<float>(2);
+                Eigen::Vector3f Xw = pMP->GetWorldPos();
+                e->Xw[0] = Xw[0];
+                e->Xw[1] = Xw[1];
+                e->Xw[2] = Xw[2];
 
                 optimizer.addEdge(e);
 
@@ -345,10 +343,10 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                 e->cx = pFrame->cx;
                 e->cy = pFrame->cy;
                 e->bf = pFrame->mbf;
-                cv::Mat Xw = pMP->GetWorldPos();
-                e->Xw[0] = Xw.at<float>(0);
-                e->Xw[1] = Xw.at<float>(1);
-                e->Xw[2] = Xw.at<float>(2);
+                Eigen::Vector3f Xw = pMP->GetWorldPos();
+                e->Xw[0] = Xw[0];
+                e->Xw[1] = Xw[1];
+                e->Xw[2] = Xw[2];
 
                 optimizer.addEdge(e);
 
@@ -444,8 +442,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     // Recover optimized pose and return number of inliers
     g2o::VertexSE3Expmap* vSE3_recov = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(0));
     g2o::SE3Quat SE3quat_recov = vSE3_recov->estimate();
-    cv::Mat pose = Converter::toCvMat(SE3quat_recov);
-    pFrame->SetPose(pose);
+    pFrame->SetPose(Converter::toEigen<float>(SE3quat_recov));
 
     return nInitialCorrespondences-nBad;
 }
@@ -573,7 +570,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     {
         MapPoint* pMP = *lit;
         g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
-        vPoint->setEstimate(Converter::toVector3d(pMP->GetWorldPos()));
+        vPoint->setEstimate(pMP->GetWorldPos().cast<double>());
         int id = pMP->mnId+maxKFid+1;
         vPoint->setId(id);
         vPoint->setMarginalized(true);
@@ -764,7 +761,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         KeyFrame* pKF = *lit;
         g2o::VertexSE3Expmap* vSE3 = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(pKF->mnId));
         g2o::SE3Quat SE3quat = vSE3->estimate();
-        pKF->SetPose(Converter::toCvMat(SE3quat));
+        pKF->SetPose(Converter::toEigen<float>(SE3quat));
     }
 
     //Points
@@ -772,7 +769,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     {
         MapPoint* pMP = *lit;
         g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(pMP->mnId+maxKFid+1));
-        pMP->SetWorldPos(Converter::toCvMat(vPoint->estimate()));
+        pMP->SetWorldPos(vPoint->estimate().cast<float>());
         pMP->UpdateNormalAndDepth();
     }
 }
@@ -824,8 +821,8 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
         }
         else
         {
-            Eigen::Matrix<double,3,3> Rcw = Converter::toMatrix3d(pKF->GetRotation());
-            Eigen::Matrix<double,3,1> tcw = Converter::toVector3d(pKF->GetTranslation());
+            Eigen::Matrix<double,3,3> Rcw = pKF->GetRotation().cast<double>();
+            Eigen::Matrix<double,3,1> tcw = pKF->GetTranslation().cast<double>();
             g2o::Sim3 Siw(Rcw,tcw,1.0);
             vScw[nIDi] = Siw;
             VSim3->setEstimate(Siw);
@@ -1004,7 +1001,10 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
 
         eigt *=(1./s); //[R t/s;0 1]
 
-        cv::Mat Tiw = Converter::toCvSE3(eigR,eigt);
+        Eigen::Matrix4f Tiw = Eigen::Matrix4f::Identity();
+        Tiw.block<3, 3>(0, 0) = eigR.cast<float>();
+        Tiw.block<3, 1>(0, 3) = eigt.cast<float>();
+        
 
         pKFi->SetPose(Tiw);
     }
@@ -1032,12 +1032,10 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
         g2o::Sim3 Srw = vScw[nIDr];
         g2o::Sim3 correctedSwr = vCorrectedSwc[nIDr];
 
-        cv::Mat P3Dw = pMP->GetWorldPos();
-        Eigen::Matrix<double,3,1> eigP3Dw = Converter::toVector3d(P3Dw);
+        Eigen::Matrix<double,3,1> eigP3Dw = pMP->GetWorldPos().cast<double>();
         Eigen::Matrix<double,3,1> eigCorrectedP3Dw = correctedSwr.map(Srw.map(eigP3Dw));
 
-        cv::Mat cvCorrectedP3Dw = Converter::toCvMat(eigCorrectedP3Dw);
-        pMP->SetWorldPos(cvCorrectedP3Dw);
+        pMP->SetWorldPos(eigCorrectedP3Dw.cast<float>());
 
         pMP->UpdateNormalAndDepth();
     }
@@ -1060,10 +1058,10 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     const cv::Mat &K2 = pKF2->mK;
 
     // Camera poses
-    const cv::Mat R1w = pKF1->GetRotation();
-    const cv::Mat t1w = pKF1->GetTranslation();
-    const cv::Mat R2w = pKF2->GetRotation();
-    const cv::Mat t2w = pKF2->GetTranslation();
+    const Eigen::Matrix3f R1w = pKF1->GetRotation();
+    const Eigen::Vector3f t1w = pKF1->GetTranslation();
+    const Eigen::Matrix3f R2w = pKF2->GetRotation();
+    const Eigen::Vector3f t2w = pKF2->GetTranslation();
 
     // Set Sim3 vertex
     g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();    
@@ -1114,17 +1112,17 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
             if(!pMP1->isBad() && !pMP2->isBad() && i2>=0)
             {
                 g2o::VertexSBAPointXYZ* vPoint1 = new g2o::VertexSBAPointXYZ();
-                cv::Mat P3D1w = pMP1->GetWorldPos();
-                cv::Mat P3D1c = R1w*P3D1w + t1w;
-                vPoint1->setEstimate(Converter::toVector3d(P3D1c));
+                Eigen::Vector3f P3D1w = pMP1->GetWorldPos();
+                Eigen::Vector3f P3D1c = R1w*P3D1w + t1w;
+                vPoint1->setEstimate(P3D1c.cast<double>());
                 vPoint1->setId(id1);
                 vPoint1->setFixed(true);
                 optimizer.addVertex(vPoint1);
 
                 g2o::VertexSBAPointXYZ* vPoint2 = new g2o::VertexSBAPointXYZ();
-                cv::Mat P3D2w = pMP2->GetWorldPos();
-                cv::Mat P3D2c = R2w*P3D2w + t2w;
-                vPoint2->setEstimate(Converter::toVector3d(P3D2c));
+                Eigen::Vector3f P3D2w = pMP2->GetWorldPos();
+                Eigen::Vector3f P3D2c = R2w*P3D2w + t2w;
+                vPoint2->setEstimate(P3D2c.cast<double>());
                 vPoint2->setId(id2);
                 vPoint2->setFixed(true);
                 optimizer.addVertex(vPoint2);

@@ -14,8 +14,8 @@
 
 
 
-std::vector<Eigen::Vector2f> waypoints;
-Eigen::Vector2f target(0.0f, 0.0f);
+std::vector<Eigen::Vector3f> waypoints;
+Eigen::Vector3f target(0.0f, 0.0f, 0.0f);
 
 
 class CameraSystem : public Subsystem
@@ -75,20 +75,23 @@ class OrbSLAMSystem : public Subsystem
             double timestamp = std::chrono::duration_cast<std::chrono::duration<double> >(t - m_startTime).count();
 
             
-//            auto a = std::chrono::steady_clock::now();
-            m_lastEstimatedPose = m_slam.TrackMonocular(m_camera.getLastFrameSameThread(), timestamp);
-//            auto b = std::chrono::steady_clock::now();
-//            std::cout << "SLAM.TrackMonocular frame took " << std::chrono::duration_cast<std::chrono::duration<double> >(b - a).count() << " seconds" << std::endl;
+            auto a = std::chrono::steady_clock::now();
+            m_lastPoseValid = m_slam.TrackMonocular(m_camera.getLastFrameSameThread(), timestamp, m_lastEstimatedPose);
+            auto b = std::chrono::steady_clock::now();
+            std::cout << "SLAM.TrackMonocular frame took " << std::chrono::duration_cast<std::chrono::duration<double> >(b - a).count() << " seconds" << std::endl;
         }
         
-        cv::Mat getLastPose() {
+        void getLastPose(Eigen::Matrix4f &pose, bool &valid) {
             std::lock_guard<std::mutex> lock(m_mutex);
-            cv::Mat res = m_lastEstimatedPose.clone();
-            return res;
+            pose = m_lastEstimatedPose;
+            valid = m_lastPoseValid;
         }
         
-        cv::Mat &getLastPoseSameThread() {
+        Eigen::Matrix4f &getLastPoseSameThread() {
             return m_lastEstimatedPose;
+        }
+        bool getLastPoseValidSameThread() {
+            return m_lastPoseValid;
         }
         
         void renderMap(const char *filename) {
@@ -100,19 +103,20 @@ class OrbSLAMSystem : public Subsystem
                 unsigned height = 1024;
                 cv::Mat image = cv::Mat::zeros(width, height, CV_8UC3 );
                 
-                Eigen::Matrix2f world2imageScale;
-                world2imageScale.setIdentity();
-                world2imageScale *= width/4.0f;
+                Eigen::Matrix<float, 2, 3> world2imageScale;
+                world2imageScale.setZero();
+                world2imageScale(0, 0) = width/4.0f;
+                world2imageScale(1, 2) = width/4.0f;
                 Eigen::Vector2f world2imageOffset(width/2, height/2);
                 
                 for (auto p : vpMPs) {
                     if (p->isBad()) continue;
                     unsigned numObs = p->Observations();
-                    cv::Mat pos = p->GetWorldPos();
-                    cv::Mat normal = p->GetNormal();
+                    Eigen::Vector3f pos = p->GetWorldPos();
+                    Eigen::Vector3f normal = p->GetNormal();
                     
-                    Eigen::Vector2f imgPos = world2imageOffset + world2imageScale * Eigen::Vector2f(pos.at<float>(0), pos.at<float>(2));
-                    Eigen::Vector2f imgNormal = world2imageScale * Eigen::Vector2f(normal.at<float>(0), normal.at<float>(2));
+                    Eigen::Vector2f imgPos = world2imageOffset + world2imageScale * pos;
+                    Eigen::Vector2f imgNormal = world2imageScale * normal;
                     imgNormal.normalize();
                     
                     int x = imgPos[0] + 0.5f;
@@ -122,7 +126,7 @@ class OrbSLAMSystem : public Subsystem
                         (y < 0) || (y >= height)) continue;
                     
                     unsigned color_r = 128 + std::min<int>(127, numObs * 20);
-                    unsigned color_g = 128 + std::min<int>(127, pos.at<float>(1) * 200);
+                    unsigned color_g = 128 + std::max<int>(-128, std::min<int>(127, pos[2] * 200));
                     image.at<cv::Vec3b>(y, x)[0] = color_r;
                     image.at<cv::Vec3b>(y, x)[1] = color_g;
                     image.at<cv::Vec3b>(y, x)[2] = 0;
@@ -157,20 +161,22 @@ class OrbSLAMSystem : public Subsystem
 
                 
                 {
-                    cv::Mat pose;
+                    Eigen::Matrix4f pose;
+                    bool poseValid;
                     {
                         std::lock_guard<std::mutex> lock(m_mutex);
-                        pose = m_lastEstimatedPose.clone();
+                        pose = m_lastEstimatedPose;
+                        poseValid = m_lastPoseValid;
                     }
 
-                    if (!pose.empty()) {
-                        Eigen::Vector2f camPoints[3];
-                        camPoints[0] = Eigen::Vector2f(-pose.at<float>(0, 3), -pose.at<float>(2, 3));
-                        float angle = std::atan2(-pose.at<float>(2, 0), -pose.at<float>(2, 2));
+                    if (poseValid) {
+                        Eigen::Vector3f camPoints[3];
+                        camPoints[0] = Eigen::Vector3f(-pose(0, 3), -pose(1, 3), -pose(2, 3));
+                        float angle = std::atan2(-pose(2, 0), -pose(2, 2));
                         float size = 0.1f;
                         float fov_half = 160 / 2.0f / 180.0f * M_PI;
-                        camPoints[1] = camPoints[0] + Eigen::Vector2f(-std::sin(angle - fov_half) * size, -std::cos(angle - fov_half) * size);
-                        camPoints[2] = camPoints[0] + Eigen::Vector2f(-std::sin(angle + fov_half) * size, -std::cos(angle + fov_half) * size);
+                        camPoints[1] = camPoints[0] + Eigen::Vector3f(-std::sin(angle - fov_half) * size, 0.0f, -std::cos(angle - fov_half) * size);
+                        camPoints[2] = camPoints[0] + Eigen::Vector3f(-std::sin(angle + fov_half) * size, 0.0f, -std::cos(angle + fov_half) * size);
                         
                         Eigen::Vector2f camImgPoints[3];                
                         for (unsigned i = 0; i < 3; i++)
@@ -212,7 +218,8 @@ class OrbSLAMSystem : public Subsystem
         std::mutex m_mutex;
         
         ORB_SLAM2::System m_slam;
-        cv::Mat m_lastEstimatedPose;
+        Eigen::Matrix4f m_lastEstimatedPose;
+        bool m_lastPoseValid = false;
 };
 
 
@@ -250,18 +257,19 @@ class Policy : public Subsystem
                 return;
             }
             
-            cv::Mat &pose = m_slam.getLastPoseSameThread();
+            const Eigen::Matrix4f &pose = m_slam.getLastPoseSameThread();
             
-            if (pose.empty()) {
+            
+            if (!m_slam.getLastPoseValidSameThread()) {
                 //Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(-0.2f, -0.2f);
                 stop();
                 std::cout << "Lost tracking!" << std::endl;
             } else {
-                Eigen::Vector2f location(-pose.at<float>(0, 3), -pose.at<float>(2, 3));
-                float angle = std::atan2(pose.at<float>(2, 0), pose.at<float>(2, 2));
+                Eigen::Vector2f location(-pose(0, 3), -pose(2, 3));
+                float angle = std::atan2(pose(2, 0), pose(2, 2));
                 
 //                Eigen::Vector2f targetLocation = m_waypoints[m_currentWaypoint];
-                Eigen::Vector2f targetLocation = target;
+                Eigen::Vector2f targetLocation(target[0], target[2]);
                 
                 Eigen::Vector2f deltaTarget = targetLocation - location;
                 float distance = deltaTarget.norm();
@@ -340,11 +348,13 @@ int main()
         switch (c) {
             case 'a':
                 try {
-                    cv::Mat pose = slam->getLastPoseSameThread();
-                    if (pose.empty())
+                    Eigen::Matrix4f pose;
+                    bool poseValid;
+                    slam->getLastPose(pose, poseValid);
+                    if (!poseValid)
                         throw std::runtime_error("No pose estimated!");
                     
-                    Eigen::Vector2f p(-pose.at<float>(0, 3), -pose.at<float>(2, 3));
+                    Eigen::Vector3f p(-pose(0, 3), -pose(1, 3), -pose(2, 3));
                     waypoints.push_back(p);
 
                 } catch (const std::exception &e) {
@@ -353,7 +363,7 @@ int main()
             break;
             case 't':
                 std::cin >> target[0];
-                std::cin >> target[1];
+                std::cin >> target[2];
                 std::cout << "Target set to " << target.transpose() << std::endl;
             break;
             case 'w':

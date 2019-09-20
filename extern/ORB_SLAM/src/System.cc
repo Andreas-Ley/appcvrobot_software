@@ -130,7 +130,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 }
 
-cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
+bool System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, Eigen::Matrix4f &pose)
 {
     if(mSensor!=STEREO)
     {
@@ -172,16 +172,16 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft,imRight,timestamp);
+    bool result = mpTracker->GrabImageStereo(imLeft,imRight,timestamp, pose);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-    return Tcw;
+    return result;
 }
 
-cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
+bool System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, Eigen::Matrix4f &pose)
 {
     if(mSensor!=RGBD)
     {
@@ -223,16 +223,16 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageRGBD(im,depthmap,timestamp);
+    bool result = mpTracker->GrabImageRGBD(im,depthmap,timestamp, pose);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-    return Tcw;
+    return result;
 }
 
-cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
+bool System::TrackMonocular(const cv::Mat &im, const double &timestamp, Eigen::Matrix4f &pose)
 {
     if(mSensor!=MONOCULAR)
     {
@@ -250,7 +250,8 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
             // Wait until Local Mapping has effectively stopped
             while(!mpLocalMapper->isStopped())
             {
-                usleep(1000);
+                //usleep(1000);
+                std::this_thread::yield();
             }
 
             mpTracker->InformOnlyTracking(true);
@@ -274,14 +275,14 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp);
+    bool result = mpTracker->GrabImageMonocular(im,timestamp, pose);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
 
-    return Tcw;
+    return result;
 }
 
 void System::ActivateLocalizationMode()
@@ -353,7 +354,7 @@ void System::SaveTrajectoryTUM(const string &filename)
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
-    cv::Mat Two = vpKFs[0]->GetPoseInverse();
+    Eigen::Matrix4f Two = vpKFs[0]->GetPoseInverse();
 
     ofstream f;
     f.open(filename.c_str());
@@ -368,7 +369,7 @@ void System::SaveTrajectoryTUM(const string &filename)
     list<ORB_SLAM2::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
     list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
     list<bool>::iterator lbL = mpTracker->mlbLost.begin();
-    for(list<cv::Mat>::iterator lit=mpTracker->mlRelativeFramePoses.begin(),
+    for(auto lit=mpTracker->mlRelativeFramePoses.begin(),
         lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++, lbL++)
     {
         if(*lbL)
@@ -376,7 +377,7 @@ void System::SaveTrajectoryTUM(const string &filename)
 
         KeyFrame* pKF = *lRit;
 
-        cv::Mat Trw = cv::Mat::eye(4,4,CV_32F);
+        Eigen::Matrix4f Trw = Eigen::Matrix4f::Identity();
 
         // If the reference keyframe was culled, traverse the spanning tree to get a suitable keyframe.
         while(pKF->isBad())
@@ -387,13 +388,13 @@ void System::SaveTrajectoryTUM(const string &filename)
 
         Trw = Trw*pKF->GetPose()*Two;
 
-        cv::Mat Tcw = (*lit)*Trw;
-        cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
-        cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
+        Eigen::Matrix4f Tcw = (*lit)*Trw;
+        Eigen::Matrix3f Rwc = Tcw.block<3, 3>(0, 0).transpose();
+        Eigen::Vector3f twc = -Rwc*Tcw.block<3, 1>(0, 3);
 
         vector<float> q = Converter::toQuaternion(Rwc);
 
-        f << setprecision(6) << *lT << " " <<  setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+        f << setprecision(6) << *lT << " " <<  setprecision(9) << twc[0] << " " << twc[1] << " " << twc[2] << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
     }
     f.close();
     cout << endl << "trajectory saved!" << endl;
@@ -424,10 +425,10 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
         if(pKF->isBad())
             continue;
 
-        cv::Mat R = pKF->GetRotation().t();
+        Eigen::Matrix3f R = pKF->GetRotation().transpose();
         vector<float> q = Converter::toQuaternion(R);
-        cv::Mat t = pKF->GetCameraCenter();
-        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
+        Eigen::Vector3f t = pKF->GetCameraCenter();
+        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t[0] << " " << t[1] << " " << t[2]
           << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
 
     }
@@ -438,6 +439,7 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 
 void System::SaveTrajectoryKITTI(const string &filename)
 {
+#if 0
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
     if(mSensor==MONOCULAR)
     {
@@ -450,7 +452,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
-    cv::Mat Two = vpKFs[0]->GetPoseInverse();
+    Eigen::Matrix4f Two = vpKFs[0]->GetPoseInverse();
 
     ofstream f;
     f.open(filename.c_str());
@@ -464,11 +466,11 @@ void System::SaveTrajectoryKITTI(const string &filename)
     // which is true when tracking failed (lbL).
     list<ORB_SLAM2::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
     list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
-    for(list<cv::Mat>::iterator lit=mpTracker->mlRelativeFramePoses.begin(), lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++)
+    for(auto lit=mpTracker->mlRelativeFramePoses.begin(), lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++)
     {
         ORB_SLAM2::KeyFrame* pKF = *lRit;
 
-        cv::Mat Trw = cv::Mat::eye(4,4,CV_32F);
+        Eigen::Matrix4f Trw = Eigen::Matrix4f::Identity();
 
         while(pKF->isBad())
         {
@@ -489,6 +491,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
     }
     f.close();
     cout << endl << "trajectory saved!" << endl;
+#endif
 }
 
 int System::GetTrackingState()

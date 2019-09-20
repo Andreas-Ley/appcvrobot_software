@@ -23,6 +23,7 @@
 #include "MapDrawer.h"
 #include "MapPoint.h"
 #include "KeyFrame.h"
+#include "Converter.h"
 #include <pangolin/pangolin.h>
 #include <mutex>
 
@@ -61,8 +62,8 @@ void MapDrawer::DrawMapPoints()
     {
         if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
             continue;
-        cv::Mat pos = vpMPs[i]->GetWorldPos();
-        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        Eigen::Vector3f pos = vpMPs[i]->GetWorldPos();
+        glVertex3fv(pos.data());
     }
     glEnd();
 
@@ -74,8 +75,8 @@ void MapDrawer::DrawMapPoints()
     {
         if((*sit)->isBad())
             continue;
-        cv::Mat pos = (*sit)->GetWorldPos();
-        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        Eigen::Vector3f pos = (*sit)->GetWorldPos();
+        glVertex3fv(pos.data());
 
     }
 
@@ -95,11 +96,11 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
         for(size_t i=0; i<vpKFs.size(); i++)
         {
             KeyFrame* pKF = vpKFs[i];
-            cv::Mat Twc = pKF->GetPoseInverse().t();
+            Eigen::Matrix4f Twc = pKF->GetPoseInverse();
 
             glPushMatrix();
 
-            glMultMatrixf(Twc.ptr<GLfloat>(0));
+            glMultMatrixf(Twc.data());
 
             glLineWidth(mKeyFrameLineWidth);
             glColor3f(0.0f,0.0f,1.0f);
@@ -140,16 +141,16 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
         {
             // Covisibility Graph
             const vector<KeyFrame*> vCovKFs = vpKFs[i]->GetCovisiblesByWeight(100);
-            cv::Mat Ow = vpKFs[i]->GetCameraCenter();
+            Eigen::Vector3f Ow = vpKFs[i]->GetCameraCenter();
             if(!vCovKFs.empty())
             {
                 for(vector<KeyFrame*>::const_iterator vit=vCovKFs.begin(), vend=vCovKFs.end(); vit!=vend; vit++)
                 {
                     if((*vit)->mnId<vpKFs[i]->mnId)
                         continue;
-                    cv::Mat Ow2 = (*vit)->GetCameraCenter();
-                    glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
-                    glVertex3f(Ow2.at<float>(0),Ow2.at<float>(1),Ow2.at<float>(2));
+                    Eigen::Vector3f Ow2 = (*vit)->GetCameraCenter();
+                    glVertex3fv(Ow.data());
+                    glVertex3fv(Ow2.data());
                 }
             }
 
@@ -157,9 +158,9 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
             KeyFrame* pParent = vpKFs[i]->GetParent();
             if(pParent)
             {
-                cv::Mat Owp = pParent->GetCameraCenter();
-                glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
-                glVertex3f(Owp.at<float>(0),Owp.at<float>(1),Owp.at<float>(2));
+                Eigen::Vector3f Owp = pParent->GetCameraCenter();
+                glVertex3fv(Ow.data());
+                glVertex3fv(Owp.data());
             }
 
             // Loops
@@ -168,9 +169,9 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
             {
                 if((*sit)->mnId<vpKFs[i]->mnId)
                     continue;
-                cv::Mat Owl = (*sit)->GetCameraCenter();
-                glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
-                glVertex3f(Owl.at<float>(0),Owl.at<float>(1),Owl.at<float>(2));
+                Eigen::Vector3f Owl = (*sit)->GetCameraCenter();
+                glVertex3fv(Ow.data());
+                glVertex3fv(Owl.data());
             }
         }
 
@@ -221,10 +222,10 @@ void MapDrawer::DrawCurrentCamera(pangolin::OpenGlMatrix &Twc)
 }
 
 
-void MapDrawer::SetCurrentCameraPose(const cv::Mat &Tcw)
+void MapDrawer::SetCurrentCameraPose(const Eigen::Matrix4f &Tcw)
 {
     unique_lock<mutex> lock(mMutexCamera);
-    mCameraPose = Tcw.clone();
+    Converter::fromEigen<4, 4, float>(mCameraPose, Tcw);
 }
 
 void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)

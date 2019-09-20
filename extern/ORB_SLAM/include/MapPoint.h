@@ -26,6 +26,9 @@
 #include"Map.h"
 
 #include<opencv2/core/core.hpp>
+
+#include <Eigen/Dense>
+
 #include<mutex>
 
 namespace ORB_SLAM2
@@ -39,13 +42,13 @@ class Frame;
 class MapPoint
 {
 public:
-    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
-    MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
+    MapPoint(const Eigen::Vector3f &Pos, KeyFrame* pRefKF, Map* pMap);
+    MapPoint(const Eigen::Vector3f &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
 
-    void SetWorldPos(const cv::Mat &Pos);
-    cv::Mat GetWorldPos();
+    void SetWorldPos(const Eigen::Vector3f &Pos);
+    Eigen::Vector3f GetWorldPos();
 
-    cv::Mat GetNormal();
+    Eigen::Vector3f GetNormal();
     KeyFrame* GetReferenceKeyFrame();
 
     std::map<KeyFrame*,size_t> GetObservations();
@@ -106,7 +109,7 @@ public:
     long unsigned int mnLoopPointForKF;
     long unsigned int mnCorrectedByKF;
     long unsigned int mnCorrectedReference;    
-    cv::Mat mPosGBA;
+    Eigen::Vector3f mPosGBA;
     long unsigned int mnBAGlobalForKF;
 
 
@@ -115,13 +118,13 @@ public:
 protected:    
 
      // Position in absolute coordinates
-     cv::Mat mWorldPos;
+     Eigen::Vector3f mWorldPos;
 
      // Keyframes observing the point and associated index in keyframe
      std::map<KeyFrame*,size_t> mObservations;
 
      // Mean viewing direction
-     cv::Mat mNormalVector;
+     Eigen::Vector3f mNormalVector;
 
      // Best descriptor to fast matching
      cv::Mat mDescriptor;

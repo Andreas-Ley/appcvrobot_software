@@ -32,6 +32,8 @@
 
 #include <opencv2/opencv.hpp>
 
+#include <Eigen/Dense>
+
 namespace ORB_SLAM2
 {
 #define FRAME_GRID_ROWS 48
@@ -64,19 +66,19 @@ public:
     void ComputeBoW();
 
     // Set the camera pose.
-    void SetPose(cv::Mat Tcw);
+    void SetPose(const Eigen::Matrix4f &Tcw);
 
     // Computes rotation, translation and camera center matrices from the camera pose.
     void UpdatePoseMatrices();
 
     // Returns the camera center.
-    inline cv::Mat GetCameraCenter(){
-        return mOw.clone();
+    inline Eigen::Vector3f GetCameraCenter(){
+        return mOw;
     }
 
     // Returns inverse of rotation
-    inline cv::Mat GetRotationInverse(){
-        return mRwc.clone();
+    inline Eigen::Matrix3f GetRotationInverse(){
+        return mRwc;
     }
 
     // Check if a MapPoint is in the frustum of the camera
@@ -96,7 +98,7 @@ public:
     void ComputeStereoFromRGBD(const cv::Mat &imDepth);
 
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
-    cv::Mat UnprojectStereo(const int &i);
+    Eigen::Vector3f UnprojectStereo(const int &i);
 
 public:
     // Vocabulary used for relocalization.
@@ -161,7 +163,9 @@ public:
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera pose.
-    cv::Mat mTcw;
+//    cv::Mat mTcw;
+    Eigen::Matrix4f mTcw;
+    bool mTcwValid = false;
 
     // Current and Next Frame id.
     static long unsigned int nNextId;
@@ -202,10 +206,13 @@ private:
     void AssignFeaturesToGrid();
 
     // Rotation, translation and camera center
-    cv::Mat mRcw;
-    cv::Mat mtcw;
-    cv::Mat mRwc;
-    cv::Mat mOw; //==mtwc
+    Eigen::Matrix3f mRcw;
+    Eigen::Vector3f mtcw;
+    Eigen::Matrix3f mRwc;
+    Eigen::Vector3f mOw; //==mtwc
+
+    cv::Mat undistortKeypointsMatCache;
+
 };
 
 }// namespace ORB_SLAM

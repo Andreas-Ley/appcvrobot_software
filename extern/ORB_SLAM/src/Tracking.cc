@@ -173,7 +173,7 @@ void Tracking::SetViewer(Viewer *pViewer)
 #endif
 
 
-cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp)
+bool Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp, Eigen::Matrix4f &pose)
 {
     mImGray = imRectLeft;
     cv::Mat imGrayRight = imRectRight;
@@ -209,11 +209,12 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
 
     Track();
 
-    return mCurrentFrame.mTcw.clone();
+    pose = mCurrentFrame.mTcw;
+    return mCurrentFrame.mTcwValid;
 }
 
 
-cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp)
+bool Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp, Eigen::Matrix4f &pose)
 {
     mImGray = imRGB;
     cv::Mat imDepth = imD;
@@ -240,11 +241,12 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
 
     Track();
 
-    return mCurrentFrame.mTcw.clone();
+    pose = mCurrentFrame.mTcw;
+    return mCurrentFrame.mTcwValid;
 }
 
 
-cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
+bool Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp, Eigen::Matrix4f &pose)
 {
     mImGray = im;
 
@@ -270,7 +272,8 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 
     Track();
 
-    return mCurrentFrame.mTcw.clone();
+    pose = mCurrentFrame.mTcw;
+    return mCurrentFrame.mTcwValid;
 }
 
 void Tracking::Track()
@@ -313,7 +316,7 @@ void Tracking::Track()
                 // Local Mapping might have changed some MapPoints tracked in last frame
                 CheckReplacedInLastFrame();
 
-                if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)
+                if(!mVelocityValid || mCurrentFrame.mnId<mnLastRelocFrameId+2)
                 {
                     bOK = TrackReferenceKeyFrame();
                 }
@@ -343,7 +346,7 @@ void Tracking::Track()
                 {
                     // In last frame we tracked enough MapPoints in the map
 
-                    if(!mVelocity.empty())
+                    if(mVelocityValid)
                     {
                         bOK = TrackWithMotionModel();
                     }
@@ -364,13 +367,13 @@ void Tracking::Track()
                     bool bOKReloc = false;
                     vector<MapPoint*> vpMPsMM;
                     vector<bool> vbOutMM;
-                    cv::Mat TcwMM;
-                    if(!mVelocity.empty())
+                    Eigen::Matrix4f TcwMM;
+                    if(mVelocityValid)
                     {
                         bOKMM = TrackWithMotionModel();
                         vpMPsMM = mCurrentFrame.mvpMapPoints;
                         vbOutMM = mCurrentFrame.mvbOutlier;
-                        TcwMM = mCurrentFrame.mTcw.clone();
+                        TcwMM = mCurrentFrame.mTcw;
                     }
                     bOKReloc = Relocalization();
 
@@ -430,15 +433,17 @@ void Tracking::Track()
         if(bOK)
         {
             // Update motion model
-            if(!mLastFrame.mTcw.empty())
+            if(mLastFrame.mTcwValid)
             {
-                cv::Mat LastTwc = cv::Mat::eye(4,4,CV_32F);
-                mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0,3).colRange(0,3));
-                mLastFrame.GetCameraCenter().copyTo(LastTwc.rowRange(0,3).col(3));
+                Eigen::Matrix4f LastTwc;
+                LastTwc.setIdentity();
+                LastTwc.block<3, 3>(0, 0) = mLastFrame.GetRotationInverse();
+                LastTwc.block<3, 1>(0, 3) = mLastFrame.GetCameraCenter();
                 mVelocity = mCurrentFrame.mTcw*LastTwc;
+                mVelocityValid = true;
             }
             else
-                mVelocity = cv::Mat();
+                mVelocityValid = false;
 #ifdef ORBSLAM_WITH_PANGOLIN
             mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
 #endif
@@ -495,9 +500,9 @@ void Tracking::Track()
     }
 
     // Store frame pose information to retrieve the complete camera trajectory afterwards.
-    if(!mCurrentFrame.mTcw.empty())
+    if(mCurrentFrame.mTcwValid)
     {
-        cv::Mat Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();
+        Eigen::Matrix4f Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();
         mlRelativeFramePoses.push_back(Tcr);
         mlpReferences.push_back(mpReferenceKF);
         mlFrameTimes.push_back(mCurrentFrame.mTimeStamp);
@@ -520,7 +525,7 @@ void Tracking::StereoInitialization()
     if(mCurrentFrame.N>500)
     {
         // Set Frame pose to the origin
-        mCurrentFrame.SetPose(cv::Mat::eye(4,4,CV_32F));
+        mCurrentFrame.SetPose(Eigen::Matrix4f::Identity());
 
         // Create KeyFrame
         KeyFrame* pKFini = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
@@ -534,7 +539,7 @@ void Tracking::StereoInitialization()
             float z = mCurrentFrame.mvDepth[i];
             if(z>0)
             {
-                cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
+                Eigen::Vector3f x3D = mCurrentFrame.UnprojectStereo(i);
                 MapPoint* pNewMP = new MapPoint(x3D,pKFini,mpMap);
                 pNewMP->AddObservation(pKFini,i);
                 pKFini->AddMapPoint(pNewMP,i);
@@ -632,10 +637,10 @@ void Tracking::MonocularInitialization()
             }
 
             // Set Frame Poses
-            mInitialFrame.SetPose(cv::Mat::eye(4,4,CV_32F));
-            cv::Mat Tcw = cv::Mat::eye(4,4,CV_32F);
-            Rcw.copyTo(Tcw.rowRange(0,3).colRange(0,3));
-            tcw.copyTo(Tcw.rowRange(0,3).col(3));
+            mInitialFrame.SetPose(Eigen::Matrix4f::Identity());
+            Eigen::Matrix4f Tcw = Eigen::Matrix4f::Identity();
+            Tcw.block<3, 3>(0, 0) = Converter::toEigen<3, 3>(Rcw);
+            Tcw.block<3, 1>(0, 3) = Converter::toEigen<3, 1>(tcw);
             mCurrentFrame.SetPose(Tcw);
 
             CreateInitialMapMonocular();
@@ -664,7 +669,7 @@ void Tracking::CreateInitialMapMonocular()
             continue;
 
         //Create MapPoint.
-        cv::Mat worldPos(mvIniP3D[i]);
+        Eigen::Vector3f worldPos(mvIniP3D[i].x, mvIniP3D[i].y, mvIniP3D[i].z);
 
         MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpMap);
 
@@ -706,8 +711,8 @@ void Tracking::CreateInitialMapMonocular()
     }
 
     // Scale initial baseline
-    cv::Mat Tc2w = pKFcur->GetPose();
-    Tc2w.col(3).rowRange(0,3) = Tc2w.col(3).rowRange(0,3)*invMedianDepth;
+    Eigen::Matrix4f Tc2w = pKFcur->GetPose();
+    Tc2w.block<3, 1>(0, 3) = Tc2w.block<3, 1>(0, 3)*invMedianDepth;
     pKFcur->SetPose(Tc2w);
 
     // Scale points
@@ -813,7 +818,7 @@ void Tracking::UpdateLastFrame()
 {
     // Update pose according to reference keyframe
     KeyFrame* pRef = mLastFrame.mpReferenceKF;
-    cv::Mat Tlr = mlRelativeFramePoses.back();
+    Eigen::Matrix4f Tlr = mlRelativeFramePoses.back();
 
     mLastFrame.SetPose(Tlr*pRef->GetPose());
 
@@ -857,7 +862,7 @@ void Tracking::UpdateLastFrame()
 
         if(bCreateNew)
         {
-            cv::Mat x3D = mLastFrame.UnprojectStereo(i);
+            Eigen::Vector3f x3D = mLastFrame.UnprojectStereo(i);
             MapPoint* pNewMP = new MapPoint(x3D,mpMap,&mLastFrame,i);
 
             mLastFrame.mvpMapPoints[i]=pNewMP;
@@ -1121,7 +1126,7 @@ void Tracking::CreateNewKeyFrame()
 
                 if(bCreateNew)
                 {
-                    cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
+                    Eigen::Vector3f x3D = mCurrentFrame.UnprojectStereo(i);
                     MapPoint* pNewMP = new MapPoint(x3D,pKF,mpMap);
                     pNewMP->AddObservation(pKF,i);
                     pKF->AddMapPoint(pNewMP,i);
@@ -1431,7 +1436,7 @@ bool Tracking::Relocalization()
             // If a Camera Pose is computed, optimize
             if(!Tcw.empty())
             {
-                Tcw.copyTo(mCurrentFrame.mTcw);
+                mCurrentFrame.mTcw = Converter::toEigen<4, 4>(Tcw);
 
                 set<MapPoint*> sFound;
 

@@ -63,9 +63,9 @@ public:
              KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor);
 
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
-    cv::Mat GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp);
-    cv::Mat GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp);
-    cv::Mat GrabImageMonocular(const cv::Mat &im, const double &timestamp);
+    bool GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp, Eigen::Matrix4f &pose);
+    bool GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp, Eigen::Matrix4f &pose);
+    bool GrabImageMonocular(const cv::Mat &im, const double &timestamp, Eigen::Matrix4f &pose);
 
     void SetLocalMapper(LocalMapping* pLocalMapper);
     void SetLoopClosing(LoopClosing* pLoopClosing);
@@ -112,7 +112,7 @@ public:
 
     // Lists used to recover the full camera trajectory at the end of the execution.
     // Basically we store the reference keyframe for each frame and its relative transformation
-    list<cv::Mat> mlRelativeFramePoses;
+    list<Eigen::Matrix4f> mlRelativeFramePoses;
     list<KeyFrame*> mlpReferences;
     list<double> mlFrameTimes;
     list<bool> mlbLost;
@@ -217,7 +217,8 @@ protected:
     unsigned int mnLastRelocFrameId;
 
     //Motion Model
-    cv::Mat mVelocity;
+    Eigen::Matrix4f mVelocity;
+    bool mVelocityValid = false;
 
     //Color order (true RGB, false BGR, ignored if grayscale)
     bool mbRGB;

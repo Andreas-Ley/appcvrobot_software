@@ -43,9 +43,8 @@ public:
 
     void DrawMapPoints();
     void DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph);
-    
     void DrawCurrentCamera(pangolin::OpenGlMatrix &Twc);
-    void SetCurrentCameraPose(const cv::Mat &Tcw);
+    void SetCurrentCameraPose(const Eigen::Matrix4f &Tcw);
     void SetReferenceKeyFrame(KeyFrame *pKF);
     void GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M);
 

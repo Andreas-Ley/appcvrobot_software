@@ -53,7 +53,7 @@ Frame::Frame(const Frame &frame)
         for(int j=0; j<FRAME_GRID_ROWS; j++)
             mGrid[i][j]=frame.mGrid[i][j];
 
-    if(!frame.mTcw.empty())
+    if(frame.mTcwValid)
         SetPose(frame.mTcw);
 }
 
@@ -252,18 +252,19 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
         (*mpORBextractorRight)(im,cv::Mat(),mvKeysRight,mDescriptorsRight);
 }
 
-void Frame::SetPose(cv::Mat Tcw)
+void Frame::SetPose(const Eigen::Matrix4f &Tcw)
 {
-    mTcw = Tcw.clone();
+    mTcw = Tcw;
+    mTcwValid = true;
     UpdatePoseMatrices();
 }
 
 void Frame::UpdatePoseMatrices()
 { 
-    mRcw = mTcw.rowRange(0,3).colRange(0,3);
-    mRwc = mRcw.t();
-    mtcw = mTcw.rowRange(0,3).col(3);
-    mOw = -mRcw.t()*mtcw;
+    mRcw = mTcw.block<3, 3>(0, 0);
+    mRwc = mRcw.transpose();
+    mtcw = mTcw.block<3, 1>(0, 3);
+    mOw = -mRcw.transpose()*mtcw;
 }
 
 bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
@@ -271,13 +272,13 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     pMP->mbTrackInView = false;
 
     // 3D in absolute coordinates
-    cv::Mat P = pMP->GetWorldPos(); 
+    Eigen::Vector3f P = pMP->GetWorldPos(); 
 
     // 3D in camera coordinates
-    const cv::Mat Pc = mRcw*P+mtcw;
-    const float &PcX = Pc.at<float>(0);
-    const float &PcY= Pc.at<float>(1);
-    const float &PcZ = Pc.at<float>(2);
+    const Eigen::Vector3f Pc = mRcw*P+mtcw;
+    const float &PcX = Pc[0];
+    const float &PcY= Pc[1];
+    const float &PcZ = Pc[2];
 
     // Check positive depth
     if(PcZ<0.0f)
@@ -296,14 +297,14 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     // Check distance is in the scale invariance region of the MapPoint
     const float maxDistance = pMP->GetMaxDistanceInvariance();
     const float minDistance = pMP->GetMinDistanceInvariance();
-    const cv::Mat PO = P-mOw;
-    const float dist = cv::norm(PO);
+    const Eigen::Vector3f PO = P-mOw;
+    const float dist = PO.norm();
 
     if(dist<minDistance || dist>maxDistance)
         return false;
 
    // Check viewing angle
-    cv::Mat Pn = pMP->GetNormal();
+    Eigen::Vector3f Pn = pMP->GetNormal();
 
     const float viewCos = PO.dot(Pn)/dist;
 
@@ -410,7 +411,8 @@ void Frame::UndistortKeyPoints()
     }
 
     // Fill matrix with points
-    cv::Mat mat(N,2,CV_32F);
+    cv::Mat &mat = undistortKeypointsMatCache;
+    mat.create(N,2,CV_32F);
     for(int i=0; i<N; i++)
     {
         mat.at<float>(i,0)=mvKeys[i].pt.x;
@@ -663,7 +665,7 @@ void Frame::ComputeStereoFromRGBD(const cv::Mat &imDepth)
     }
 }
 
-cv::Mat Frame::UnprojectStereo(const int &i)
+Eigen::Vector3f Frame::UnprojectStereo(const int &i)
 {
     const float z = mvDepth[i];
     if(z>0)
@@ -672,11 +674,11 @@ cv::Mat Frame::UnprojectStereo(const int &i)
         const float v = mvKeysUn[i].pt.y;
         const float x = (u-cx)*z*invfx;
         const float y = (v-cy)*z*invfy;
-        cv::Mat x3Dc = (cv::Mat_<float>(3,1) << x, y, z);
+        Eigen::Vector3f x3Dc(x, y, z);
         return mRwc*x3Dc+mOw;
     }
     else
-        return cv::Mat();
+        throw std::runtime_error("Invalid z");
 }
 
 } //namespace ORB_SLAM

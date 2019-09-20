@@ -44,8 +44,8 @@ public:
 
     cv::Mat iterate(int nIterations, bool &bNoMore, std::vector<bool> &vbInliers, int &nInliers);
 
-    cv::Mat GetEstimatedRotation();
-    cv::Mat GetEstimatedTranslation();
+    Eigen::Matrix3f GetEstimatedRotation();
+    Eigen::Vector3f GetEstimatedTranslation();
     float GetEstimatedScale();
 
 
@@ -57,8 +57,8 @@ protected:
 
     void CheckInliers();
 
-    void Project(const std::vector<cv::Mat> &vP3Dw, std::vector<cv::Mat> &vP2D, cv::Mat Tcw, cv::Mat K);
-    void FromCameraToImage(const std::vector<cv::Mat> &vP3Dc, std::vector<cv::Mat> &vP2D, cv::Mat K);
+    void Project(const std::vector<Eigen::Vector3f> &vP3Dw, std::vector<Eigen::Vector2f> &vP2D, cv::Mat Tcw, cv::Mat K);
+    void FromCameraToImage(const std::vector<Eigen::Vector3f> &vP3Dc, std::vector<Eigen::Vector2f> &vP2D, cv::Mat K);
 
 
 protected:
@@ -67,8 +67,8 @@ protected:
     KeyFrame* mpKF1;
     KeyFrame* mpKF2;
 
-    std::vector<cv::Mat> mvX3Dc1;
-    std::vector<cv::Mat> mvX3Dc2;
+    std::vector<Eigen::Vector3f> mvX3Dc1;
+    std::vector<Eigen::Vector3f> mvX3Dc2;
     std::vector<MapPoint*> mvpMapPoints1;
     std::vector<MapPoint*> mvpMapPoints2;
     std::vector<MapPoint*> mvpMatches12;
@@ -106,8 +106,8 @@ protected:
     std::vector<size_t> mvAllIndices;
 
     // Projections
-    std::vector<cv::Mat> mvP1im1;
-    std::vector<cv::Mat> mvP2im2;
+    std::vector<Eigen::Vector2f> mvP1im1;
+    std::vector<Eigen::Vector2f> mvP2im2;
 
     // RANSAC probability
     double mRansacProb;

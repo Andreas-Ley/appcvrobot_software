@@ -67,7 +67,7 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix<double,4,4> &m)
         for(int j=0; j<4; j++)
             cvMat.at<float>(i,j)=m(i,j);
 
-    return cvMat.clone();
+    return cvMat;
 }
 
 cv::Mat Converter::toCvMat(const Eigen::Matrix3d &m)
@@ -77,7 +77,7 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix3d &m)
         for(int j=0; j<3; j++)
             cvMat.at<float>(i,j)=m(i,j);
 
-    return cvMat.clone();
+    return cvMat;
 }
 
 cv::Mat Converter::toCvMat(const Eigen::Matrix<double,3,1> &m)
@@ -86,7 +86,7 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix<double,3,1> &m)
     for(int i=0;i<3;i++)
             cvMat.at<float>(i)=m(i);
 
-    return cvMat.clone();
+    return cvMat;
 }
 
 cv::Mat Converter::toCvSE3(const Eigen::Matrix<double,3,3> &R, const Eigen::Matrix<double,3,1> &t)
@@ -104,7 +104,7 @@ cv::Mat Converter::toCvSE3(const Eigen::Matrix<double,3,3> &R, const Eigen::Matr
         cvMat.at<float>(i,3)=t(i);
     }
 
-    return cvMat.clone();
+    return cvMat;
 }
 
 Eigen::Matrix<double,3,1> Converter::toVector3d(const cv::Mat &cvVector)
@@ -147,5 +147,19 @@ std::vector<float> Converter::toQuaternion(const cv::Mat &M)
 
     return v;
 }
+
+std::vector<float> Converter::toQuaternion(const Eigen::Matrix3f &M)
+{
+    Eigen::Quaternionf q(M);
+
+    std::vector<float> v(4);
+    v[0] = q.x();
+    v[1] = q.y();
+    v[2] = q.z();
+    v[3] = q.w();
+
+    return v;
+}
+
 
 } //namespace ORB_SLAM

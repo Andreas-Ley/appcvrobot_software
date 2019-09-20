@@ -29,6 +29,8 @@
 #include "Frame.h"
 #include "KeyFrameDatabase.h"
 
+#include <Eigen/Dense>
+
 #include <mutex>
 
 
@@ -46,13 +48,13 @@ public:
     KeyFrame(Frame &F, Map* pMap, KeyFrameDatabase* pKFDB);
 
     // Pose functions
-    void SetPose(const cv::Mat &Tcw);
-    cv::Mat GetPose();
-    cv::Mat GetPoseInverse();
-    cv::Mat GetCameraCenter();
-    cv::Mat GetStereoCenter();
-    cv::Mat GetRotation();
-    cv::Mat GetTranslation();
+    void SetPose(const Eigen::Matrix4f &Tcw);
+    Eigen::Matrix4f GetPose();
+    Eigen::Matrix4f GetPoseInverse();
+    Eigen::Vector3f GetCameraCenter();
+    Eigen::Vector3f GetStereoCenter();
+    Eigen::Matrix3f GetRotation();
+    Eigen::Vector3f GetTranslation();
 
     // Bag of Words Representation
     void ComputeBoW();
@@ -92,7 +94,7 @@ public:
 
     // KeyPoint functions
     std::vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r) const;
-    cv::Mat UnprojectStereo(int i);
+    Eigen::Vector3f UnprojectStereo(int i);
 
     // Image
     bool IsInImage(const float &x, const float &y) const;
@@ -149,8 +151,8 @@ public:
     float mRelocScore;
 
     // Variables used by loop closing
-    cv::Mat mTcwGBA;
-    cv::Mat mTcwBefGBA;
+    Eigen::Matrix4f mTcwGBA;
+    Eigen::Matrix4f mTcwBefGBA;
     long unsigned int mnBAGlobalForKF;
 
     // Calibration parameters
@@ -171,7 +173,7 @@ public:
     DBoW2::FeatureVector mFeatVec;
 
     // Pose relative to parent (this is computed when bad flag is activated)
-    cv::Mat mTcp;
+    Eigen::Matrix4f mTcp;
 
     // Scale
     const int mnScaleLevels;
@@ -193,11 +195,11 @@ public:
 protected:
 
     // SE3 Pose and camera center
-    cv::Mat Tcw;
-    cv::Mat Twc;
-    cv::Mat Ow;
+    Eigen::Matrix4f Tcw;
+    Eigen::Matrix4f Twc;
+    Eigen::Vector3f Ow;
 
-    cv::Mat Cw; // Stereo middel point. Only for visualization
+    Eigen::Vector3f Cw; // Stereo middel point. Only for visualization
 
     // MapPoints associated to keypoints
     std::vector<MapPoint*> mvpMapPoints;
