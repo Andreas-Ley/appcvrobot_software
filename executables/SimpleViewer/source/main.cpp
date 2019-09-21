@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     
     while (true) {
 
-        for (unsigned i = 0; i < 0; i++) {
+        for (unsigned i = 0; i < 2; i++) {
             boost::array<char, 2048> recv_buf;
             udp::endpoint sender_endpoint;
 
@@ -56,7 +56,8 @@ int main(int argc, char **argv)
             
             unsigned dataLen = len - sizeof(robot::WifiCommunication::CameraTilePacket);
             
-            std::vector<unsigned char> imgBuffer(packet->data, packet->data+len);
+            std::vector<unsigned char> imgBuffer(packet->data, packet->data+dataLen);
+            std::cout << imgBuffer.size() << std::endl;
             cv::Mat tile = cv::imdecode(imgBuffer, cv::IMREAD_COLOR);
             
             if (tile.empty()) {

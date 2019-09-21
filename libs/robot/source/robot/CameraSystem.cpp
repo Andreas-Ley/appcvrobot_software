@@ -80,6 +80,8 @@ void CameraSystem::operateSlow(float dt)
         
         std::vector<std::tuple<float, int, int>> tiles;
 
+        float totalChange = 0.0f;
+        
         unsigned tileRows = (m_currentFrameF.rows + WIFI_TILE_SIZE-1) / WIFI_TILE_SIZE;
         unsigned tileCols = (m_currentFrameF.cols + WIFI_TILE_SIZE-1) / WIFI_TILE_SIZE;
         cv::Mat diff = m_currentFrameF - m_wifiSubmittedFrame;
@@ -91,17 +93,20 @@ void CameraSystem::operateSlow(float dt)
                         .rowRange(r*WIFI_TILE_SIZE, std::min<int>(diff.rows, (r+1)*WIFI_TILE_SIZE))
                                         ));
                 float change = m[0] + m[1] + m[2];
+                totalChange += change;
                 if (change > 0.0f)
                     tiles.push_back({change, c, r});
             }
             
         std::sort(tiles.begin(), tiles.end());
         
+        float changeUpdated = 0.0f;
+        
         std::vector<unsigned char> imgBuffer;
         WifiCommunication::Packet packet;
         while (bytesRemaining > 0 && !tiles.empty()) {
-//            float s = std::get<0>(tiles.back());
-//std::cout << "change " << s << std::endl;
+            float s = std::get<0>(tiles.back());
+            changeUpdated += s;
             int c = std::get<1>(tiles.back());
             int r = std::get<2>(tiles.back());
             tiles.pop_back();
@@ -124,7 +129,7 @@ void CameraSystem::operateSlow(float dt)
                                 .rowRange(y1, y2)
                          );
                             
-            cv::imencode(".jpg", tile, imgBuffer, {cv::IMWRITE_JPEG_QUALITY, 30, cv::IMWRITE_JPEG_PROGRESSIVE, 0, cv::IMWRITE_JPEG_OPTIMIZE, 0});
+            cv::imencode(".jpg", tile, imgBuffer, {cv::IMWRITE_JPEG_QUALITY, m_wifiCompression, cv::IMWRITE_JPEG_PROGRESSIVE, 0, cv::IMWRITE_JPEG_OPTIMIZE, 0});
 //std::cout << "Compressed tile with " << imgBuffer.size()*8.0f/((x2-x1) * (y2-y1)) << "bpp" << std::endl;
             
             packet.data.resize(sizeof(WifiCommunication::CameraTilePacket) + imgBuffer.size());
@@ -137,6 +142,7 @@ void CameraSystem::operateSlow(float dt)
                 m_currentFrame.cols, m_currentFrame.rows,
                 x1, y1, x2-x1, y2-y1
             };
+            memcpy(camTilePacket->data, imgBuffer.data(), imgBuffer.size());
 
             packet.broadcast2Connections = true;
             
@@ -144,6 +150,12 @@ void CameraSystem::operateSlow(float dt)
             
             m_wifiCommunication->send(std::move(packet), false);
 
+        }
+        
+        if (changeUpdated > totalChange * 0.5f) {
+            m_wifiCompression = std::min<unsigned>(100, m_wifiCompression+1);
+        } else {
+            m_wifiCompression = std::max<unsigned>(10, m_wifiCompression-1);
         }
         
     }
