@@ -39,8 +39,6 @@ class DrivePolicy : public Subsystem
             GPIO_PIN_DIRECTION_B_RIGHT = 20,
             GPIO_PIN_ENCODER_LEFT = 3,
             GPIO_PIN_ENCODER_RIGHT = 4,
-            
-            WHEEL_ENCODER_INTERVAL = 200,
         };
         
         DrivePolicy();
@@ -53,14 +51,20 @@ class DrivePolicy : public Subsystem
         
         void wheelEncoderTrigger(int event, int level, std::uint32_t tick);
     protected:
-        std::chrono::time_point<std::chrono::steady_clock> m_lastWheelEncoderEvaluation;
-        
         void outputDrive(float left, float right);
         
+        unsigned m_lastEncoderTriggerLeft = 0;
+        unsigned m_lastEncoderTriggerRight = 0;
+        
+        std::atomic<unsigned> m_encoderTriggerTimeLeft = std::atomic<unsigned>(0);
+        std::atomic<unsigned> m_encoderTriggerTimeRight = std::atomic<unsigned>(0);
         std::atomic<unsigned> m_encoderTriggerLeft = std::atomic<unsigned>(0);
         std::atomic<unsigned> m_encoderTriggerRight = std::atomic<unsigned>(0);
         std::atomic<float> m_encoderFrequencyLeft = std::atomic<float>(0.0f);
         std::atomic<float> m_encoderFrequencyRight = std::atomic<float>(0.0f);
+        
+        unsigned m_itersWithNoTicksLeft = 0;
+        unsigned m_itersWithNoTicksRight = 0;
 };
 
 #endif // DRIVEPOLICY_H

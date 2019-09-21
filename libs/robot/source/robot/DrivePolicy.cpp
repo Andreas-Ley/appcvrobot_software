@@ -53,35 +53,51 @@ DrivePolicy::DrivePolicy()
     gpioSetAlertFuncEx(GPIO_PIN_ENCODER_LEFT, &wheelEncoderTriggerCallback, this);
     gpioSetAlertFuncEx(GPIO_PIN_ENCODER_RIGHT, &wheelEncoderTriggerCallback, this);
 #endif
-    
-    m_lastWheelEncoderEvaluation = std::chrono::steady_clock::now();
 }
 
 
 void DrivePolicy::wheelEncoderTrigger(int event, int level, uint32_t tick)
 {
     if ((level == 0) || (level == 1)) { // falling or rising edge
-        if (event == GPIO_PIN_ENCODER_LEFT)
+        if (event == GPIO_PIN_ENCODER_LEFT) {
+            m_encoderTriggerTimeLeft.store(tick - m_lastEncoderTriggerLeft);
+            m_lastEncoderTriggerLeft = tick;
             m_encoderTriggerLeft++;
-        if (event == GPIO_PIN_ENCODER_RIGHT)
+        }
+        if (event == GPIO_PIN_ENCODER_RIGHT) {
+            m_encoderTriggerTimeRight.store(tick - m_lastEncoderTriggerRight);
+            m_lastEncoderTriggerRight = tick;
             m_encoderTriggerRight++;
+        }
     }
 }
 
 void DrivePolicy::operate(float dt)
 {
-    auto timeSinceLastWheelEncoderEval = std::chrono::steady_clock::now() - m_lastWheelEncoderEvaluation;
-    if (timeSinceLastWheelEncoderEval > std::chrono::milliseconds(WHEEL_ENCODER_INTERVAL)) {
-		std::cout << "Update frequencies" << std::endl;
-        m_lastWheelEncoderEvaluation = std::chrono::steady_clock::now();
-        unsigned ticksLeft = m_encoderTriggerLeft.exchange(0);
-        unsigned ticksRight = m_encoderTriggerRight.exchange(0);
-		std::cout << "Update frequencies " << ticksLeft << " " << ticksRight << std::endl;
-        
-        m_encoderFrequencyLeft.store(ticksLeft / (float) WHEEL_ENCODER_INTERVAL * 1e3f);
-        m_encoderFrequencyRight.store(ticksRight / (float) WHEEL_ENCODER_INTERVAL * 1e3f);
-    }
+    unsigned ticksLeft = m_encoderTriggerLeft.exchange(0);
+    if (ticksLeft == 0) {
+        m_itersWithNoTicksLeft++;
+    } else
+        m_itersWithNoTicksLeft = 0;
     
+    if (m_itersWithNoTicksLeft > 20)
+        m_encoderFrequencyLeft.store(0.0f);
+    else
+        m_encoderFrequencyLeft.store(m_encoderFrequencyLeft.load() * 0.5f + 0.5f * 1e6f / m_encoderTriggerTimeLeft.load());
+    
+    unsigned ticksRight = m_encoderTriggerRight.exchange(0);
+    if (ticksRight == 0) {
+        m_itersWithNoTicksRight++;
+    } else
+        m_itersWithNoTicksRight = 0;
+    
+    if (m_itersWithNoTicksRight > 20)
+        m_encoderFrequencyRight.store(0.0f);
+    else
+        m_encoderFrequencyRight.store(m_encoderFrequencyRight.load() * 0.5f + 0.5f * 1e6f / m_encoderTriggerTimeRight.load());
+    
+    
+    //std::cout << m_encoderFrequencyLeft.load() << "  " << m_encoderFrequencyRight.load() << std::endl;
 }
 
 
@@ -92,6 +108,12 @@ void DrivePolicy::fullStop()
 
 void DrivePolicy::outputDrive(float left, float right)
 {
+	float minimum = 0.3f;
+	if (left != 0.0f)
+		left = std::copysign(std::max(0.0f, std::abs(left-minimum)/(1.0f - minimum))+minimum, left);
+	if (right != 0.0f)
+		right = std::copysign(std::max(0.0f, std::abs(right-minimum)/(1.0f - minimum))+minimum, right);
+	
 #ifndef BUILD_WITH_ROBOT_STUBS
     if (left > 0.0f) {
         gpioWrite(GPIO_PIN_DIRECTION_A_LEFT, 1);
