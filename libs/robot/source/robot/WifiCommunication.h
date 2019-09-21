@@ -29,6 +29,7 @@
 #include <thread>
 #include <list>
 #include <vector>
+#include <chrono>
 
 
 namespace robot {
@@ -44,11 +45,32 @@ class WifiCommunication : public Subsystem
             MESSAGE_ID_CAMERA_TILE = 0x10,
             MESSAGE_ID_SLAM_POSE = 0x20,
             MESSAGE_ID_SLAM_MAP_SLICE = 0x21,
+            
+            MESSAGE_ID_REMOTE_STEER_CMD = 0x1021,
         };
         
         struct MessageHeader {
-            std::size_t sequenceNumber;
-        };
+            std::uint32_t messageType;
+            std::uint32_t sequenceNumber;
+        } __attribute__((packed));
+
+        struct CameraTileSpec {
+            std::uint16_t frameW, frameH;
+            std::uint16_t x, y, w, h;
+        } __attribute__((packed));
+        
+        struct CameraTilePacket {
+            MessageHeader header;
+            CameraTileSpec tileSpec;
+            unsigned char data[0];
+        } __attribute__((packed));
+        
+        struct RemoteSteerCmdPacket {
+            MessageHeader header;
+            std::int16_t left;
+            std::int16_t right;
+        } __attribute__((packed));
+
         
         struct Packet {
             boost::asio::ip::udp::endpoint destination;
@@ -61,6 +83,19 @@ class WifiCommunication : public Subsystem
         
         unsigned getTxQueueLength() { return m_highPrioTx.queuedBytes.load() + m_lowPrioTx.queuedBytes.load(); }
         void send(Packet packet, bool highPrio);
+        
+        struct LastRemoteSteerCommand {
+            std::chrono::time_point<std::chrono::steady_clock> whenRecieved;
+            unsigned sequenceNumber = 0;
+            float left = 0.0f;
+            float right = 0.0f;
+        };
+        
+        LastRemoteSteerCommand getLastSteerCommand() const { 
+            std::lock_guard<std::mutex> lock(m_steerCommandMutex);
+            return m_lastRemoteSteerCommand; 
+        }
+        
     protected:
         std::atomic<bool> m_shutdown = std::atomic<bool>(false);
         std::mutex m_sockMutex;
@@ -97,7 +132,11 @@ class WifiCommunication : public Subsystem
         void enqueueTxPacket(Packet packet, TxChannel &channel);
         void sendTxPacket();
         void onSendTxPacket(const boost::system::error_code &error, std::size_t size);
+  
         
+        
+        mutable std::mutex m_steerCommandMutex;
+        LastRemoteSteerCommand m_lastRemoteSteerCommand;
 };
 
 }

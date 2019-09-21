@@ -127,23 +127,17 @@ void CameraSystem::operateSlow(float dt)
             cv::imencode(".jpg", tile, imgBuffer, {cv::IMWRITE_JPEG_QUALITY, 30, cv::IMWRITE_JPEG_PROGRESSIVE, 0, cv::IMWRITE_JPEG_OPTIMIZE, 0});
 //std::cout << "Compressed tile with " << imgBuffer.size()*8.0f/((x2-x1) * (y2-y1)) << "bpp" << std::endl;
             
-            struct TileSpec {
-                std::uint32_t frameW, frameH;
-                std::uint32_t x, y, w, h;
-            };
+            packet.data.resize(sizeof(WifiCommunication::CameraTilePacket) + imgBuffer.size());
             
-            packet.data.resize(4 + sizeof(TileSpec) + imgBuffer.size());
+            WifiCommunication::CameraTilePacket *camTilePacket = (WifiCommunication::CameraTilePacket*)packet.data.data();
             
-            std::uint32_t messageId = WifiCommunication::MESSAGE_ID_CAMERA_TILE;
-            TileSpec tileSpec = {
+            camTilePacket->header.messageType = WifiCommunication::MESSAGE_ID_CAMERA_TILE;
+            camTilePacket->header.sequenceNumber = m_nextCameraTileSequenceNumber++;
+            camTilePacket->tileSpec = {
                 m_currentFrame.cols, m_currentFrame.rows,
                 x1, y1, x2-x1, y2-y1
             };
-            unsigned offset = 0;
-            memcpy(packet.data.data() + offset, &messageId, sizeof(messageId)); offset += sizeof(messageId);
-            memcpy(packet.data.data() + offset, &tileSpec, sizeof(tileSpec)); offset += sizeof(tileSpec);
-            memcpy(packet.data.data() + offset, imgBuffer.data(), imgBuffer.size()); offset += imgBuffer.size();
-            
+
             packet.broadcast2Connections = true;
             
             bytesRemaining -= packet.data.size();

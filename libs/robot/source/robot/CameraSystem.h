@@ -57,6 +57,8 @@ class CameraSystem : public Subsystem
             WIFI_TILE_SIZE = 64
         };
         
+        unsigned m_nextCameraTileSequenceNumber = 0;
+        
 };
 
 }

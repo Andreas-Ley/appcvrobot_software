@@ -21,6 +21,7 @@
 #include <boost/bind.hpp>
 
 #include <iostream>
+#include <limits>
 
 namespace robot {
  
@@ -66,20 +67,49 @@ void WifiCommunication::startReceivingPacket()
 void WifiCommunication::onReceivedPacket(const boost::system::error_code &error, std::size_t size)
 {
     if (!error) {
-        std::string msg(m_receiveBuffer.data(), m_receiveBuffer.data()+size);
-std::cout << "Got: '" << msg << "'"<< std::endl;
-        if (msg == "I, for one, welcome our new machine overlords") {
-std::cout << "accepting" << std::endl;
-            std::scoped_lock<std::mutex> lock(m_TxMutex);
-            m_connections.push_back({m_lastRecievedEndpoint});
+        bool connected = false;
+        for (auto &c : m_connections) 
+            if (c.senderEndpoint == m_lastRecievedEndpoint)
+                connected = true;
+            
+        if (connected) {
+            
+            if (size < sizeof(MessageHeader))
+                std::cout << "Dropping broken packet" << std::endl;
+            else {
+                const MessageHeader *header = (const MessageHeader*) m_receiveBuffer.data();
+                
+                switch (header->messageType) {
+                    case MESSAGE_ID_REMOTE_STEER_CMD: {
+                        const RemoteSteerCmdPacket *steerPacket = (const RemoteSteerCmdPacket*) m_receiveBuffer.data();
+                        int diff = (int)steerPacket->header.sequenceNumber - (int)m_lastRemoteSteerCommand.sequenceNumber;
+                        if (diff < 0) break;
+                        
+                        std::lock_guard<std::mutex> lock(m_steerCommandMutex);
+                        m_lastRemoteSteerCommand.left = steerPacket->left / (float) std::numeric_limits<decltype(steerPacket->left)>::max();
+                        m_lastRemoteSteerCommand.right = steerPacket->right / (float) std::numeric_limits<decltype(steerPacket->right)>::max();
+                        m_lastRemoteSteerCommand.sequenceNumber = steerPacket->header.sequenceNumber;
+                        m_lastRemoteSteerCommand.whenRecieved = std::chrono::steady_clock::now();
+                    } break;
+                    default:
+                    break;
+                }
+            }
+            
         } else {
-            std::string returnMessage = "Speak the passphrase to connect";
-            
-            Packet packet;
-            packet.data = std::vector<char>(returnMessage.begin(), returnMessage.end());
-            packet.destination = m_lastRecievedEndpoint;
-            
-            enqueueTxPacket(std::move(packet), m_highPrioTx);
+            std::string msg(m_receiveBuffer.data(), m_receiveBuffer.data()+size);
+            if (msg == "I, for one, welcome our new machine overlords") {
+                std::scoped_lock<std::mutex> lock(m_TxMutex);
+                m_connections.push_back({m_lastRecievedEndpoint});
+            } else {
+                std::string returnMessage = "Speak the passphrase to connect";
+                
+                Packet packet;
+                packet.data = std::vector<char>(returnMessage.begin(), returnMessage.end());
+                packet.destination = m_lastRecievedEndpoint;
+                
+                enqueueTxPacket(std::move(packet), m_highPrioTx);
+            }
         }
         
         startReceivingPacket();

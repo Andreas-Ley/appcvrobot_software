@@ -19,6 +19,8 @@ add_library(robot STATIC
     source/robot/DrivePolicyDirect.h
     source/robot/DrivePolicyEncoderPID.cpp
     source/robot/DrivePolicyEncoderPID.h
+    source/robot/RemoteControlPolicy.cpp
+    source/robot/RemoteControlPolicy.h
     source/robot/CameraSystem.cpp
     source/robot/CameraSystem.h
     source/robot/WifiCommunication.cpp

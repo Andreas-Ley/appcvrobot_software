@@ -1,4 +1,5 @@
 #include <robot/WifiCommunication.h>
+#include <robot/CameraSystem.h>
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/core.hpp>
@@ -31,33 +32,31 @@ int main(int argc, char **argv)
     cv::Mat frameBuffer(640, 480, CV_8UC3, cv::Scalar::all(0));
      
     cv::namedWindow( "Camera view", cv::WINDOW_AUTOSIZE );
+    
+    unsigned steerSequenceNumber = 0;
+    
     while (true) {
 
-        for (unsigned i = 0; i < 10; i++) {
+        for (unsigned i = 0; i < 0; i++) {
             boost::array<char, 2048> recv_buf;
             udp::endpoint sender_endpoint;
 
             size_t len = socket.receive_from(boost::asio::buffer(recv_buf), sender_endpoint);
             // check correct sender...
             
-            struct TileSpec {
-                std::uint32_t frameW, frameH;
-                std::uint32_t x, y, w, h;
-            };
-
-            if (len < 4 + sizeof(TileSpec))
+            if (len < sizeof(robot::WifiCommunication::CameraTilePacket))
                 continue;
             
-            std::uint32_t messageId;
-            TileSpec tileSpec;
-            std::vector<unsigned char> imgBuffer;
-            imgBuffer.resize(len - 4 + sizeof(TileSpec));
-                
-            unsigned offset = 0;
-            memcpy(&messageId, &recv_buf[offset], sizeof(messageId)); offset += sizeof(messageId);
-            memcpy(&tileSpec, &recv_buf[offset], sizeof(tileSpec)); offset += sizeof(tileSpec);
-            memcpy(imgBuffer.data(), &recv_buf[offset], imgBuffer.size()); offset += imgBuffer.size();
+            
+            const robot::WifiCommunication::CameraTilePacket *packet = (const robot::WifiCommunication::CameraTilePacket *) recv_buf.data();
 
+        
+            if (packet->header.messageType != robot::WifiCommunication::MESSAGE_ID_CAMERA_TILE)
+                continue;
+            
+            unsigned dataLen = len - sizeof(robot::WifiCommunication::CameraTilePacket);
+            
+            std::vector<unsigned char> imgBuffer(packet->data, packet->data+len);
             cv::Mat tile = cv::imdecode(imgBuffer, cv::IMREAD_COLOR);
             
             if (tile.empty()) {
@@ -65,18 +64,63 @@ int main(int argc, char **argv)
                 continue;
             }
             
-            std::cout << tileSpec.frameW << " " << tileSpec.frameH << std::endl;
-            std::cout << tileSpec.x << " " << tileSpec.y << " " << tileSpec.w << " " << tileSpec.h << std::endl;
-            
-            if ((tileSpec.frameW != frameBuffer.cols) || (tileSpec.frameH != frameBuffer.rows)) {
-                frameBuffer.create(tileSpec.frameH, tileSpec.frameW, CV_8UC3);
+            if ((packet->tileSpec.frameW != frameBuffer.cols) || (packet->tileSpec.frameH != frameBuffer.rows)) {
+                frameBuffer.create(packet->tileSpec.frameH, packet->tileSpec.frameW, CV_8UC3);
             }
             // todo: check validity
-            tile.copyTo(frameBuffer.rowRange(tileSpec.y, tileSpec.y + tileSpec.h).colRange(tileSpec.x, tileSpec.x + tileSpec.w));
+            tile.copyTo(frameBuffer
+                            .rowRange(packet->tileSpec.y, packet->tileSpec.y + packet->tileSpec.h)
+                            .colRange(packet->tileSpec.x, packet->tileSpec.x + packet->tileSpec.w));
         }
         
         cv::imshow("Camera view", frameBuffer);  
-        cv::waitKey(1);
+        
+        float steerLeft = 0.0f;
+        float steerRight = 0.0f;
+        
+        int key = cv::waitKey(1);
+        if (key >= 0) {
+            std::cout << "key " << key << std::endl;
+            switch (key) {
+                case 27:
+                    return 0;
+                break;
+                case 'w': 
+                    steerLeft = 1.0f;
+                    steerRight = 1.0f;
+                break;
+                case 's':
+                    steerLeft = -1.0f;
+                    steerRight = -1.0f;
+                break;
+                case 'a':
+                    steerLeft = -1.0f;
+                    steerRight = 1.0f;
+                break;
+                case 'd':
+                    steerLeft = 1.0f;
+                    steerRight = -1.0f;
+                break;
+                case 'q':
+                    steerLeft = 0.5f;
+                    steerRight = 1.0f;
+                break;
+                case 'e':
+                    steerLeft = 1.0f;
+                    steerRight = 0.5f;
+                break;
+            };
+        }
+        steerLeft *= 1.0f;
+        steerRight *= 1.0f;
+        
+        robot::WifiCommunication::RemoteSteerCmdPacket steerPacket;
+        steerPacket.header.messageType = robot::WifiCommunication::MESSAGE_ID_REMOTE_STEER_CMD;
+        steerPacket.header.sequenceNumber = steerSequenceNumber++;
+        steerPacket.left = steerLeft * std::numeric_limits<decltype(steerPacket.left)>::max();
+        steerPacket.right = steerRight * std::numeric_limits<decltype(steerPacket.left)>::max();
+        
+        socket.send_to(boost::asio::buffer(&steerPacket, sizeof(steerPacket)), receiver_endpoint);
     }
    
     return 0;
