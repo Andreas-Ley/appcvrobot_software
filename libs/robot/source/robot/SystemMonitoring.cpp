@@ -42,9 +42,8 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
             std::string header;
             for (unsigned i = 0; i < 5; i++) {
                 file >> header;
-            
-                unsigned user, nice, system, idle, iowait, irq, softirq;
-                file >> user, nice, system, idle, iowait, irq, softirq;
+                unsigned user, nice, system, idle, iowait, irq, softirq, zero;
+                file >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> zero >> zero >> zero;
                 
                 totalJiffies[i] = user + nice + system + idle + iowait + irq + softirq;
                 workJiffies[i] = user + nice + system;
@@ -82,6 +81,7 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
             
             
             struct statvfs buf;
+            memset(&buf, 0, sizeof(buf));
             statvfs("./", &buf);
             
             {
@@ -91,7 +91,7 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
                 m_state.CPUTemp_mC = temp;
                 for (unsigned i = 0; i < 5; i++)
                     m_state.cpuUsage[i] = usage[i] * 255;
-                m_state.freeSpace_MB = buf.f_bavail * buf.f_bsize / 1024 / 1024;
+                m_state.freeSpace_MB = (std::size_t) buf.f_bavail * (std::size_t) buf.f_bsize / 1024 / 1024;
             }
             
             if (m_wifiCommunication != nullptr) {

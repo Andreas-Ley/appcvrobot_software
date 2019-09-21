@@ -102,6 +102,8 @@ void CameraSystem::operateSlow(float dt)
         
         float changeUpdated = 0.0f;
         
+        unsigned maxTileSize = 0;
+        
         std::vector<unsigned char> imgBuffer;
         WifiCommunication::Packet packet;
         while (bytesRemaining > 0 && !tiles.empty()) {
@@ -147,12 +149,13 @@ void CameraSystem::operateSlow(float dt)
             packet.broadcast2Connections = true;
             
             bytesRemaining -= packet.data.size();
+            maxTileSize = std::max<unsigned>(maxTileSize, packet.data.size());
             
             m_wifiCommunication->send(std::move(packet), false);
 
         }
         
-        if (changeUpdated > totalChange * 0.5f) {
+        if ((changeUpdated > totalChange * 0.8f) && (maxTileSize < WifiCommunication::MAX_PACKET_SIZE)) {
             m_wifiCompression = std::min<unsigned>(100, m_wifiCompression+1);
         } else {
             m_wifiCompression = std::max<unsigned>(10, m_wifiCompression-1);

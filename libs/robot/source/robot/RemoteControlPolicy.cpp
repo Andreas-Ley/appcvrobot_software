@@ -20,6 +20,7 @@
 #include "Robot.h"
 
 #include <chrono>
+#include <iostream>
 
 namespace robot {
 
@@ -31,9 +32,10 @@ void RemoteControlPolicy::operate(float dt) {
     auto lastCmd = m_wifiCommunication->getLastSteerCommand();
     
     auto age = std::chrono::steady_clock::now() - lastCmd.whenRecieved;
-    if (age > std::chrono::milliseconds(500))
+    if (age > std::chrono::milliseconds(1000)) {
+		std::cout << "No remote control signal, stopping" << std::endl;
         Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
-    else
+    } else
         Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(lastCmd.left, lastCmd.right);
     
 }

@@ -47,8 +47,8 @@ void DrivePolicyEncoderPID::operate(float dt)
     right = std::max(right, 0.0f);
     left = std::copysign(left, d_left) / MAX_TICKS_PER_SECOND;
     right = std::copysign(right, d_right) / MAX_TICKS_PER_SECOND;
-std::cout << "PID: " << left << " " << right << std::endl;
-std::cout << "left desired actual: " << d_left << " " << m_encoderFrequencyLeft.load()/MAX_TICKS_PER_SECOND << std::endl;
+//std::cout << "PID: " << left << " " << right << std::endl;
+//std::cout << "left desired actual: " << d_left << " " << m_encoderFrequencyLeft.load()/MAX_TICKS_PER_SECOND << std::endl;
 
 	if (d_left == 0.0f) {
 		m_pidLeft.fullStop();

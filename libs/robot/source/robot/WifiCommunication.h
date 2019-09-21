@@ -42,7 +42,7 @@ class WifiCommunication : public Subsystem
 {
     public:
         enum {
-            MAX_PACKET_SIZE = 1024,
+            MAX_PACKET_SIZE = 1024+512,
             MESSAGE_ID_CAMERA_TILE = 0x10,
             MESSAGE_ID_SLAM_POSE = 0x20,
             MESSAGE_ID_SLAM_MAP_SLICE = 0x21,
