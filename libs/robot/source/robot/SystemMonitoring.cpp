@@ -55,7 +55,7 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
         
         while (!m_shutdown.load()) {
             
-            std::this_thread::sleep_for(std::chrono::microseconds(2000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             
             unsigned temp = ~0u;
             {

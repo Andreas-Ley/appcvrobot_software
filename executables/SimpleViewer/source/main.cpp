@@ -151,20 +151,20 @@ int main(int argc, char **argv)
         
         cv::putText(resizedRotatedFramebuffer, 
                     (boost::format("Disk space: %d MB") % systemState.freeSpace_MB).str().c_str(), 
-                    cv::Point(0, 10),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(1.0f, 1.0f, 1.0f));
+                    cv::Point(0, 30),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
 
         cv::putText(resizedRotatedFramebuffer, 
-                    (boost::format("CPU Temperature: %f°C") % (systemState.CPUTemp_mC * 1e-3f)).str().c_str(), 
-                    cv::Point(0, 20),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(1.0f, 1.0f, 1.0f));
+                    (boost::format("CPU Temperature: %f C") % (systemState.CPUTemp_mC * 1e-3f)).str().c_str(), 
+                    cv::Point(0, 60),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         
         cv::putText(resizedRotatedFramebuffer, 
-                    (boost::format("CPU usage: %f%") % (systemState.cpuUsage[0] / 255.0f)).str().c_str(), 
-                    cv::Point(0, 30),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(1.0f, 1.0f, 1.0f));
+                    (boost::format("CPU usage: %f%%") % (systemState.cpuUsage[0] / 255.0f)).str().c_str(), 
+                    cv::Point(0, 90),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         
         for (unsigned i = 0; i < 4; i++) {
             cv::putText(resizedRotatedFramebuffer, 
-                        (boost::format("CPU-%d: %f%  %dMHz") % i % (systemState.cpuUsage[i+1] / 255.0f) % (systemState.cpuFreq_KHz[i] / 1000)).str().c_str(), 
-                        cv::Point(0, 40 + i*10),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(1.0f, 1.0f, 1.0f));
+                        (boost::format("CPU-%d: %f%%  %dMHz") % i % (systemState.cpuUsage[i+1] / 255.0f) % (systemState.cpuFreq_KHz[i] / 1000)).str().c_str(), 
+                        cv::Point(0, 120 + i*30),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         }
         
         
