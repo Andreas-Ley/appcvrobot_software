@@ -20,6 +20,7 @@
 #define WIFICOMMUNICATION_H
 
 #include "Subsystem.h"
+#include "SystemMonitoring.h"
 
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
@@ -45,6 +46,7 @@ class WifiCommunication : public Subsystem
             MESSAGE_ID_CAMERA_TILE = 0x10,
             MESSAGE_ID_SLAM_POSE = 0x20,
             MESSAGE_ID_SLAM_MAP_SLICE = 0x21,
+            MESSAGE_ID_SYSTEM_MONITORING = 0x30,
             
             MESSAGE_ID_REMOTE_STEER_CMD = 0x1021,
         };
@@ -71,6 +73,10 @@ class WifiCommunication : public Subsystem
             std::int16_t right;
         } __attribute__((packed));
 
+        struct SystemMonitoringPacket {
+            MessageHeader header;
+            SystemMonitoring::State  __attribute__((packed)) state;
+        } __attribute__((packed));
         
         struct Packet {
             boost::asio::ip::udp::endpoint destination;
