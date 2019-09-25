@@ -39,6 +39,8 @@ class SystemMonitoring : public Subsystem
         struct State {
             std::uint32_t CPUTemp_mC = 0;
             std::uint32_t freeSpace_MB = 0;
+            std::uint32_t memTotal_KB = 0;
+            std::uint32_t memAvailable_KB = 0;
             std::uint32_t cpuFreq_KHz[4] = {};
             std::uint8_t cpuUsage[5] = {};
         };

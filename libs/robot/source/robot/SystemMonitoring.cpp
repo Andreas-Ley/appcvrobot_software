@@ -27,6 +27,7 @@
 #include <iostream>
 #include <fstream>
 #include <sys/statvfs.h>
+#include <sys/sysinfo.h>
 
 namespace robot {
     
@@ -84,6 +85,9 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
             memset(&buf, 0, sizeof(buf));
             statvfs("./", &buf);
             
+            struct sysinfo sinfo;
+            sysinfo(&sinfo);
+            
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 for (unsigned i = 0; i < 4; i++)
@@ -91,7 +95,10 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
                 m_state.CPUTemp_mC = temp;
                 for (unsigned i = 0; i < 5; i++)
                     m_state.cpuUsage[i] = usage[i] * 255;
-                m_state.freeSpace_MB = (std::size_t) buf.f_bavail * (std::size_t) buf.f_bsize / 1024 / 1024;
+                m_state.freeSpace_MB = (std::uint64_t) buf.f_bavail * (std::uint64_t) buf.f_bsize / 1024 / 1024;
+                
+                m_state.memTotal_KB = sinfo.totalram / 1024;
+                m_state.memAvailable_KB = (sinfo.freeram + sinfo.bufferram) / 1024;
             }
             
             if (m_wifiCommunication != nullptr) {

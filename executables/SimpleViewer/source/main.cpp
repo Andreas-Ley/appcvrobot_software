@@ -1,5 +1,8 @@
 #include <robot/WifiCommunication.h>
 #include <robot/CameraSystem.h>
+#ifdef BUILD_WITH_ORB_SLAM
+#include <robot/SLAMSystem.h>
+#endif
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/core.hpp>
@@ -94,6 +97,13 @@ int main(int argc, char **argv)
      
     cv::namedWindow( "Camera view", cv::WINDOW_AUTOSIZE );
     
+#ifdef BUILD_WITH_ORB_SLAM
+    cv::namedWindow( "SLAM map", cv::WINDOW_AUTOSIZE );
+    
+    cv::Mat slamMapFrameBuffer(960, 1280, CV_8UC3, cv::Scalar::all(0));
+    
+#endif
+    
     unsigned steerSequenceNumber = 0;
 
     Joystick joystick;
@@ -102,6 +112,24 @@ int main(int argc, char **argv)
         std::cout << "Joystick not found!" << std::endl;
     
     robot::SystemMonitoring::State systemState;
+    
+#ifdef BUILD_WITH_ORB_SLAM
+    Eigen::Matrix4f lastSLAMPose = Eigen::Matrix4f::Identity();
+    bool slamTrackingLost = true;
+    unsigned lastSLAMPoseSeqNumber = 0;
+    
+    float slamMapRotation = 0.0f;
+    
+    Eigen::Matrix<float, 3, 4> slamMapProjMatrix;
+    slamMapProjMatrix.setZero();
+    slamMapProjMatrix(0, 0) = 400.0f;
+    slamMapProjMatrix(1, 1) = -400.0f;
+    slamMapProjMatrix(2, 3) = 1.0f;
+    slamMapProjMatrix(0, 3) = slamMapFrameBuffer.cols*0.5f;
+    slamMapProjMatrix(1, 3) = slamMapFrameBuffer.rows*0.5f;
+    
+    std::vector<robot::SLAMSystem::NetworkMapSlice::Point> slamMap;
+#endif
     
     while (true) {
 
@@ -142,7 +170,44 @@ int main(int argc, char **argv)
                 case robot::WifiCommunication::MESSAGE_ID_SYSTEM_MONITORING: {
                     const robot::WifiCommunication::SystemMonitoringPacket *packet = (const robot::WifiCommunication::SystemMonitoringPacket *) recv_buf.data();
                     systemState = packet->state;
-                }
+                } break;
+#ifdef BUILD_WITH_ORB_SLAM
+                case robot::WifiCommunication::MESSAGE_ID_SLAM_POSE: {
+                    const robot::WifiCommunication::SLAMPosePacket *packet = (const robot::WifiCommunication::SLAMPosePacket *) recv_buf.data();
+                    if (packet->header.sequenceNumber < lastSLAMPoseSeqNumber) break;
+                    
+                    lastSLAMPoseSeqNumber = packet->header.sequenceNumber;
+                    
+                    Eigen::Quaternionf rot;
+                    rot.x() = packet->pose.qx;
+                    rot.y() = packet->pose.qy;
+                    rot.z() = packet->pose.qz;
+                    rot.w() = packet->pose.qw;
+                    
+                    // todo: check sequence number!!!
+
+                    lastSLAMPose.block<3, 3>(0, 0) = rot.toRotationMatrix();
+                    lastSLAMPose(0, 3) = packet->pose.px;
+                    lastSLAMPose(1, 3) = packet->pose.py;
+                    lastSLAMPose(2, 3) = packet->pose.pz;
+                    
+                    slamTrackingLost = packet->pose.trackingLost;
+                } break;
+                case robot::WifiCommunication::MESSAGE_ID_SLAM_MAP_SLICE: {
+                    const robot::WifiCommunication::SLAMMapSlicePacket *packet = (const robot::WifiCommunication::SLAMMapSlicePacket *) recv_buf.data();
+
+                    slamMap.resize(packet->mapSlice.numPointsTotal);
+                    if (slamMap.size() > 0) {
+                        unsigned dstIdx = packet->mapSlice.sliceOffset % slamMap.size();
+                        for (unsigned i = 0; i < packet->mapSlice.sliceCount; i++) {
+                            slamMap[dstIdx] = packet->mapSlice.points[i];
+                            dstIdx++;
+                            if (dstIdx == slamMap.size())
+                                dstIdx = 0;
+                        }
+                    }
+                } break;
+#endif
             }
         }
         
@@ -154,21 +219,108 @@ int main(int argc, char **argv)
                     cv::Point(0, 30),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
 
         cv::putText(resizedRotatedFramebuffer, 
-                    (boost::format("CPU Temperature: %f C") % (systemState.CPUTemp_mC * 1e-3f)).str().c_str(), 
+                    (boost::format("RAM avail: %d MB of %d MB") % (systemState.memAvailable_KB/1024) % (systemState.memTotal_KB/1024)).str().c_str(), 
                     cv::Point(0, 60),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
+
+        cv::putText(resizedRotatedFramebuffer, 
+                    (boost::format("CPU Temperature: %f C") % (systemState.CPUTemp_mC * 1e-3f)).str().c_str(), 
+                    cv::Point(0, 90),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         
         cv::putText(resizedRotatedFramebuffer, 
-                    (boost::format("CPU usage: %f%%") % (systemState.cpuUsage[0] / 255.0f)).str().c_str(), 
-                    cv::Point(0, 90),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
+                    (boost::format("CPU usage: %f%%") % (systemState.cpuUsage[0] * 100.0f / 255.0f)).str().c_str(), 
+                    cv::Point(0, 120),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         
         for (unsigned i = 0; i < 4; i++) {
             cv::putText(resizedRotatedFramebuffer, 
-                        (boost::format("CPU-%d: %f%%  %dMHz") % i % (systemState.cpuUsage[i+1] / 255.0f) % (systemState.cpuFreq_KHz[i] / 1000)).str().c_str(), 
-                        cv::Point(0, 120 + i*30),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
+                        (boost::format("CPU-%d: %f%%  %dMHz") % i % (systemState.cpuUsage[i+1] * 100.0f / 255.0f) % (systemState.cpuFreq_KHz[i] / 1000)).str().c_str(), 
+                        cv::Point(0, 150 + i*30),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         }
         
         
         cv::imshow("Camera view", resizedRotatedFramebuffer);  
+        
+        
+        
+        
+#ifdef BUILD_WITH_ORB_SLAM
+        slamMapFrameBuffer.setTo(cv::Scalar(0, 0, 0));
+        
+        slamMapRotation += 0.01f;
+        if (slamMapRotation > M_PI*2.0f)
+            slamMapRotation -= M_PI*2.0f;
+        
+        Eigen::Matrix4f slamMapViewMatrix;
+        slamMapViewMatrix.setIdentity();
+        slamMapViewMatrix.block<3, 3>(0, 0) = (
+                Eigen::AngleAxis<float>(70.0f / 180.0f * M_PI, Eigen::Vector3f(1.0f, 0.0f, 0.0f)) * 
+                Eigen::AngleAxis<float>(slamMapRotation, Eigen::Vector3f(0.0f, 1.0f, 0.0f))
+            ).matrix();
+        
+        Eigen::Matrix<float, 3, 4> MVP = slamMapProjMatrix * slamMapViewMatrix;
+        
+        for (auto &p : slamMap) {
+            Eigen::Vector3f imgH = MVP * Eigen::Vector4f(p.x, p.y, p.z, 1.0f);
+            Eigen::Vector2f img = imgH.head<2>() / imgH[2];
+            
+            int x = img[0];
+            int y = img[1];
+            if ((x > 0) && (x < slamMapFrameBuffer.cols) &&
+                (y > 0) && (y < slamMapFrameBuffer.rows))
+                slamMapFrameBuffer.at<cv::Vec3b>(y, x) = cv::Vec3b(255, 255, 255);
+        }
+        
+        auto drawLineWS = [&](const Eigen::Vector3f &p1, const Eigen::Vector3f &p2, const cv::Scalar &color) {
+            Eigen::Vector3f img1H = MVP * Eigen::Vector4f(p1[0], p1[1], p1[2], 1.0f);
+            Eigen::Vector2f img1 = img1H.head<2>() / img1H[2];
+
+            Eigen::Vector3f img2H = MVP * Eigen::Vector4f(p2[0], p2[1], p2[2], 1.0f);
+            Eigen::Vector2f img2 = img2H.head<2>() / img2H[2];
+            
+            cv::line(slamMapFrameBuffer,
+                        cv::Point(img1[0], img1[1]),
+                        cv::Point(img2[0], img2[1]),
+                        color,
+                        1,
+                        cv::LINE_4);
+        };
+        
+        Eigen::Vector3f cameraCenter = - lastSLAMPose.block<3, 3>(0, 0).transpose() * lastSLAMPose.block<3, 1>(0, 3);
+        
+        auto R = lastSLAMPose.block<3, 3>(0, 0).transpose();
+        float w = std::tan(160.0f/2.0f/180.0f*M_PI);
+        
+        Eigen::Vector3f frustrum[4] = {
+            cameraCenter + R * Eigen::Vector3f(-w, -w, -1.0f) * 0.01f,
+            cameraCenter + R * Eigen::Vector3f(w, -w, -1.0f) * 0.01f,
+            cameraCenter + R * Eigen::Vector3f(w, w, -1.0f) * 0.01f,
+            cameraCenter + R * Eigen::Vector3f(-w, w, -1.0f) * 0.01f
+        };
+        
+        drawLineWS(cameraCenter, frustrum[0], cv::Scalar(255, 0, 0));
+        drawLineWS(cameraCenter, frustrum[1], cv::Scalar(255, 0, 0));
+        drawLineWS(cameraCenter, frustrum[2], cv::Scalar(255, 0, 0));
+        drawLineWS(cameraCenter, frustrum[3], cv::Scalar(255, 0, 0));
+        drawLineWS(frustrum[0], frustrum[1], cv::Scalar(255, 0, 0));
+        drawLineWS(frustrum[1], frustrum[2], cv::Scalar(255, 0, 0));
+        drawLineWS(frustrum[2], frustrum[3], cv::Scalar(255, 0, 0));
+        drawLineWS(frustrum[3], frustrum[0], cv::Scalar(255, 0, 0));
+        
+        drawLineWS(Eigen::Vector3f(0.0f, 0.0f, 0.0f), Eigen::Vector3f(1.0f, 0.0f, 0.0f), cv::Scalar(0, 0, 255));
+        drawLineWS(Eigen::Vector3f(0.0f, 0.0f, 0.0f), Eigen::Vector3f(0.0f, 1.0f, 0.0f), cv::Scalar(0, 255, 0));
+        drawLineWS(Eigen::Vector3f(0.0f, 0.0f, 0.0f), Eigen::Vector3f(0.0f, 0.0f, 1.0f), cv::Scalar(255, 0, 0));
+        
+        if (slamTrackingLost)
+            cv::putText(slamMapFrameBuffer, 
+                        "Tracking lost!", 
+                        cv::Point(0, 60),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
+
+        cv::imshow("SLAM map", slamMapFrameBuffer);  
+#endif
+
+        
+        
+        
+        
         
         float steerLeft = 0.0f;
         float steerRight = 0.0f;

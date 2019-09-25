@@ -6,6 +6,18 @@ find_package(Eigen3 REQUIRED)
 find_package(Boost COMPONENTS system thread REQUIRED) 
 
 
+if(BUILD_WITH_ORB_SLAM)
+set(SLAM_files 
+    source/robot/SLAMSystem.cpp
+    source/robot/SLAMSystem.h
+)
+else(BUILD_WITH_ORB_SLAM)
+set(SLAM_files 
+)
+endif(BUILD_WITH_ORB_SLAM)
+
+
+
 add_library(robot STATIC
     source/robot/Robot.cpp
     source/robot/Robot.h
@@ -27,6 +39,7 @@ add_library(robot STATIC
     source/robot/CameraSystem.h
     source/robot/WifiCommunication.cpp
     source/robot/WifiCommunication.h
+    ${SLAM_files}
 )
 
 set(data_files 
@@ -67,6 +80,12 @@ target_link_libraries(robot PUBLIC
     ${Boost_LIBRARIES}
     pthread
 )
+
+if(BUILD_WITH_ORB_SLAM)
+target_link_libraries(robot PUBLIC
+    orb_slam
+)
+endif(BUILD_WITH_ORB_SLAM)
 
 if(BUILD_WITH_ROBOT_STUBS)
 else(BUILD_WITH_ROBOT_STUBS)

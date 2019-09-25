@@ -267,12 +267,12 @@ bool System::TrackMonocular(const cv::Mat &im, const double &timestamp, Eigen::M
 
     // Check reset
     {
-    unique_lock<mutex> lock(mMutexReset);
-    if(mbReset)
-    {
-        mpTracker->Reset();
-        mbReset = false;
-    }
+        unique_lock<mutex> lock(mMutexReset);
+        if(mbReset)
+        {
+            mpTracker->Reset();
+            mbReset = false;
+        }
     }
 
     bool result = mpTracker->GrabImageMonocular(im,timestamp, pose);

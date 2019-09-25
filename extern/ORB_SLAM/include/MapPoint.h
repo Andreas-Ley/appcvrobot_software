@@ -50,6 +50,9 @@ public:
 
     Eigen::Vector3f GetNormal();
     KeyFrame* GetReferenceKeyFrame();
+    
+    void getInfo(unsigned &id, Eigen::Vector3f &p, Eigen::Vector3f &n, bool &isBad, unsigned &numObs, float &foundRatio);
+    
 
     std::map<KeyFrame*,size_t> GetObservations();
     int Observations();

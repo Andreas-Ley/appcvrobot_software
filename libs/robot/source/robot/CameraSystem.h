@@ -53,6 +53,7 @@ class CameraSystem : public Subsystem
         WifiCommunication *m_wifiCommunication = nullptr;
         unsigned m_reportWifiMaxRate = 0;
         unsigned m_wifiCompression = 80;
+        cv::Mat m_currentFrameF;
         
         enum {
             WIFI_TILE_SIZE = 64

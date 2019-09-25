@@ -21,6 +21,9 @@
 
 #include "Subsystem.h"
 #include "SystemMonitoring.h"
+#ifdef BUILD_WITH_ORB_SLAM
+#include "SLAMSystem.h"
+#endif
 
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
@@ -43,9 +46,12 @@ class WifiCommunication : public Subsystem
     public:
         enum {
             MAX_PACKET_SIZE = 1024+512,
+            
             MESSAGE_ID_CAMERA_TILE = 0x10,
+#ifdef BUILD_WITH_ORB_SLAM
             MESSAGE_ID_SLAM_POSE = 0x20,
             MESSAGE_ID_SLAM_MAP_SLICE = 0x21,
+#endif
             MESSAGE_ID_SYSTEM_MONITORING = 0x30,
             
             MESSAGE_ID_REMOTE_STEER_CMD = 0x1021,
@@ -77,6 +83,18 @@ class WifiCommunication : public Subsystem
             MessageHeader header;
             SystemMonitoring::State  __attribute__((packed)) state;
         } __attribute__((packed));
+        
+#ifdef BUILD_WITH_ORB_SLAM
+        struct SLAMPosePacket {
+            MessageHeader header;
+            SLAMSystem::NetworkPose  __attribute__((packed)) pose;
+        } __attribute__((packed));
+        
+        struct SLAMMapSlicePacket {
+            MessageHeader header;
+            SLAMSystem::NetworkMapSlice  __attribute__((packed)) mapSlice;
+        } __attribute__((packed));
+#endif
         
         struct Packet {
             boost::asio::ip::udp::endpoint destination;

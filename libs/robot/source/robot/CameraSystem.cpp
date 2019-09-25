@@ -71,7 +71,6 @@ void CameraSystem::operateSlow(float dt)
 //std::cout << "Sending " << bytesRemaining << " bytes of camera data" << std::endl;
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        cv::Mat m_currentFrameF;
         m_currentFrame.convertTo(m_currentFrameF, CV_32FC3);
         
         if (m_wifiSubmittedFrame.empty() || (m_wifiSubmittedFrame.rows != m_currentFrame.rows) || (m_wifiSubmittedFrame.cols != m_currentFrame.cols)) {

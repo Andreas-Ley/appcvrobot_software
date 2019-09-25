@@ -95,6 +95,20 @@ KeyFrame* MapPoint::GetReferenceKeyFrame()
     return mpRefKF;
 }
 
+void MapPoint::getInfo(unsigned &id, Eigen::Vector3f &p, Eigen::Vector3f &n, bool &isBad, unsigned &numObs, float &foundRatio)
+{
+    id = mnId;
+    unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock2(mMutexPos);
+
+    p = mWorldPos;
+    n = mNormalVector;
+    numObs = nObs;
+    isBad = mbBad;
+    
+    foundRatio = static_cast<float>(mnFound)/mnVisible;
+}
+
 void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);

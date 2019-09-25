@@ -4,6 +4,9 @@
 #include <robot/RemoteControlPolicy.h>
 #include <robot/CameraSystem.h>
 #include <robot/SystemMonitoring.h>
+#ifdef BUILD_WITH_ORB_SLAM
+#include <robot/SLAMSystem.h>
+#endif
 
 
 #include <iostream>
@@ -14,9 +17,13 @@ int main()
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyEncoderPID()));
     robot::WifiCommunication *wifiCom;
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(wifiCom = new robot::WifiCommunication(1337)));
-    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new robot::CameraSystem(wifiCom, 2'000'000))); // 2 MB/s
+    robot::CameraSystem *cam;
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(cam = new robot::CameraSystem(wifiCom, 2'000'000))); // 2 MB/s
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new robot::RemoteControlPolicy(wifiCom)));
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new robot::SystemMonitoring(wifiCom)));
+#ifdef BUILD_WITH_ORB_SLAM
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new robot::SLAMSystem(*cam, wifiCom, 100'000))); // 100KB/s
+#endif
     
     bool shutdown = false;
     while (!shutdown) {
