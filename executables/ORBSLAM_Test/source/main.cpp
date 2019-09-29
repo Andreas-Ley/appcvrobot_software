@@ -1,5 +1,5 @@
 #include <robot/Robot.h>
-#include <robot/DrivePolicyDirect.h>
+#include <robot/DrivePolicyAccLimited.h>
 #include <robot/WifiCommunication.h>
 #include <robot/CameraSystem.h>
 
@@ -299,7 +299,7 @@ class Policy : public Subsystem
 int main()
 {
     
-    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyDirect()));
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyAccLimited()));
 
     robot::WifiCommunication *wifiCom;
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(wifiCom = new robot::WifiCommunication(1337)));

@@ -290,10 +290,10 @@ int main(int argc, char **argv)
         float w = std::tan(160.0f/2.0f/180.0f*M_PI);
         
         Eigen::Vector3f frustrum[4] = {
-            cameraCenter + R * Eigen::Vector3f(-w, -w, -1.0f) * 0.01f,
-            cameraCenter + R * Eigen::Vector3f(w, -w, -1.0f) * 0.01f,
-            cameraCenter + R * Eigen::Vector3f(w, w, -1.0f) * 0.01f,
-            cameraCenter + R * Eigen::Vector3f(-w, w, -1.0f) * 0.01f
+            cameraCenter + R * Eigen::Vector3f(-w, -w, 1.0f) * 0.01f,
+            cameraCenter + R * Eigen::Vector3f(w, -w, 1.0f) * 0.01f,
+            cameraCenter + R * Eigen::Vector3f(w, w, 1.0f) * 0.01f,
+            cameraCenter + R * Eigen::Vector3f(-w, w, 1.0f) * 0.01f
         };
         
         drawLineWS(cameraCenter, frustrum[0], cv::Scalar(255, 0, 0));
@@ -361,8 +361,8 @@ int main(int argc, char **argv)
         }
         
         if (!joystick.valid()) {
-            steerLeft *= 1.0f;
-            steerRight *= 1.0f;
+            steerLeft *= 0.5f;
+            steerRight *= 0.5f;
         } else {
             steerLeft = -joystick.axis[1] + joystick.axis[0] * 0.4f;
             steerRight = -joystick.axis[1] - joystick.axis[0] * 0.4f;

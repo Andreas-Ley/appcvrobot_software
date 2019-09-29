@@ -16,34 +16,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "DrivePolicy.h"
+#ifndef HARDWAREINTERFACE_H
+#define HARDWAREINTERFACE_H
 
-#include "HardwareInterface.h"
+#include <cstdint>
 
-#include <algorithm>
-#include <cmath>
-#include <utility>
-#include <stdexcept>
+namespace hardwareInterface {
+    
+void init();
+void shutdown();
 
-#include <iostream>
+namespace motors {
 
-DrivePolicy::DrivePolicy()
-{
-}
-
-
-void DrivePolicy::operate(float dt)
-{
+void enable(bool enable);
+void setSpeed(float left, float right);
+void getSteps(std::int16_t &left, std::int16_t &right);
+float getControllerCPUUsage();
 
 }
 
-
-void DrivePolicy::fullStop()
-{
-    outputDrive(0.0f, 0.0f);
+//void writeLCD(const std::string &msg);
+    
 }
 
-void DrivePolicy::outputDrive(float left, float right)
-{
-    hardwareInterface::motors::setSpeed(left, right);
-}
+#endif // HARDWAREINTERFACE_H

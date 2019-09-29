@@ -29,8 +29,6 @@ add_library(robot STATIC
     source/robot/DrivePolicyAccLimited.h
     source/robot/DrivePolicyDirect.cpp
     source/robot/DrivePolicyDirect.h
-    source/robot/DrivePolicyEncoderPID.cpp
-    source/robot/DrivePolicyEncoderPID.h
     source/robot/RemoteControlPolicy.cpp
     source/robot/RemoteControlPolicy.h
     source/robot/SystemMonitoring.cpp
@@ -39,6 +37,8 @@ add_library(robot STATIC
     source/robot/CameraSystem.h
     source/robot/WifiCommunication.cpp
     source/robot/WifiCommunication.h
+    source/robot/HardwareInterface.cpp
+    source/robot/HardwareInterface.h
     ${SLAM_files}
 )
 

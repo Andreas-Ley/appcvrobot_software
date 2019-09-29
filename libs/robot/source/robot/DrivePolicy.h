@@ -30,17 +30,6 @@
 class DrivePolicy : public Subsystem
 {
     public:
-        enum {
-            GPIO_PIN_PWM_LEFT = 12,
-            GPIO_PIN_DIRECTION_A_LEFT = 6,
-            GPIO_PIN_DIRECTION_B_LEFT = 19,
-            GPIO_PIN_PWM_RIGHT = 13,
-            GPIO_PIN_DIRECTION_A_RIGHT = 16,
-            GPIO_PIN_DIRECTION_B_RIGHT = 20,
-            GPIO_PIN_ENCODER_LEFT = 3,
-            GPIO_PIN_ENCODER_RIGHT = 4,
-        };
-        
         DrivePolicy();
         virtual ~DrivePolicy() = default;
         
@@ -48,23 +37,8 @@ class DrivePolicy : public Subsystem
         virtual void setDesiredWheelSpeed(float left, float right) = 0;
         
         virtual void operate(float dt) override;
-        
-        void wheelEncoderTrigger(int event, int level, std::uint32_t tick);
     protected:
         void outputDrive(float left, float right);
-        
-        unsigned m_lastEncoderTriggerLeft = 0;
-        unsigned m_lastEncoderTriggerRight = 0;
-        
-        std::atomic<unsigned> m_encoderTriggerTimeLeft = std::atomic<unsigned>(0);
-        std::atomic<unsigned> m_encoderTriggerTimeRight = std::atomic<unsigned>(0);
-        std::atomic<unsigned> m_encoderTriggerLeft = std::atomic<unsigned>(0);
-        std::atomic<unsigned> m_encoderTriggerRight = std::atomic<unsigned>(0);
-        std::atomic<float> m_encoderFrequencyLeft = std::atomic<float>(0.0f);
-        std::atomic<float> m_encoderFrequencyRight = std::atomic<float>(0.0f);
-        
-        unsigned m_itersWithNoTicksLeft = 0;
-        unsigned m_itersWithNoTicksRight = 0;
 };
 
 #endif // DRIVEPOLICY_H

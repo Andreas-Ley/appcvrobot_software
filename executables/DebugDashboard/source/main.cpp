@@ -1,5 +1,5 @@
 #include <robot/Robot.h>
-#include <robot/DrivePolicyEncoderPID.h>
+#include <robot/DrivePolicyAccLimited.h>
 #include <robot/WifiCommunication.h>
 #include <robot/RemoteControlPolicy.h>
 #include <robot/CameraSystem.h>
@@ -14,7 +14,7 @@
 
 int main()
 {
-    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyEncoderPID()));
+    Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new DrivePolicyAccLimited()));
     robot::WifiCommunication *wifiCom;
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(wifiCom = new robot::WifiCommunication(1337)));
     robot::CameraSystem *cam;
