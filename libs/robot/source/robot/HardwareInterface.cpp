@@ -90,7 +90,7 @@ void setSpeed(float left, float right)
     };
     
 #ifndef BUILD_WITH_ROBOT_STUBS
-    if (i2cWriteBlockData(i2cHandleController, REGISTER_SET_TARGET_SPEED, delays, 4) != 0)
+    if (i2cWriteBlockData(i2cHandleController, REGISTER_SET_TARGET_SPEED, (char*)delays, 4) != 0)
         throw std::runtime_error("i2c error!");
 #endif
     
@@ -102,7 +102,7 @@ void getSteps(std::int16_t &left, std::int16_t &right)
 
     std::int16_t buf[2] = {};
 #ifndef BUILD_WITH_ROBOT_STUBS
-    if (i2cReadBlockData(i2cHandleController, REGISTER_STEPS_MOVED, buf, 4) != 0)
+    if (i2cReadBlockData(i2cHandleController, REGISTER_STEPS_MOVED, (char*)buf, 4) != 0)
         throw std::runtime_error("i2c error!");
 #endif
     left = buf[0];

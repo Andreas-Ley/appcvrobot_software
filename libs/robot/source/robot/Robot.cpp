@@ -17,12 +17,14 @@
  */
 
 #include "Robot.h"
-#include <chrono>
+
+#include "HardwareInterface.h"
 
 #ifndef BUILD_WITH_ROBOT_STUBS
 #include <pigpio.h>
 #endif
 
+#include <chrono>
 #include <stdexcept>
 #include <functional>
 
@@ -36,6 +38,7 @@ Robot::Robot()
     if (gpioInitialise() < 0)
         throw std::runtime_error("GPIO initialization failed!");
 #endif
+    hardwareInterface::init();
     
     m_terminate.store(false);
     m_thread = std::thread(std::bind(&Robot::threadBody, this));
@@ -50,6 +53,8 @@ Robot::~Robot()
     
     for (auto &s : m_subsystems)
         s->fullStop();
+    
+    hardwareInterface::shutdown();
 #ifndef BUILD_WITH_ROBOT_STUBS
     gpioTerminate();
 #endif
