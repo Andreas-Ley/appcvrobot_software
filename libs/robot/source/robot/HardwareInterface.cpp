@@ -25,6 +25,8 @@
 #include "../../../firmware/protocoll.h"
 
 #include <mutex>
+#include <chrono>
+#include <thread>
 #include <iostream>
 
 namespace hardwareInterface {
@@ -40,6 +42,10 @@ int i2cHandleController;
 void init()
 {
 #ifndef BUILD_WITH_ROBOT_STUBS
+    if (gpioInitialise() < 0)
+        throw std::runtime_error("GPIO initialization failed!");
+
+
     bbI2COpen(2, 3, 100'000);
     i2cHandleController = 2;
 //    i2cHandleController = i2cOpen(I2C_BUS, I2C_ADDRESS, 0);
@@ -51,6 +57,8 @@ void shutdown()
 #ifndef BUILD_WITH_ROBOT_STUBS
     bbI2CClose(i2cHandleController);
 //    i2cClose(i2cHandleController);
+
+    gpioTerminate();
 #endif
 }
 
@@ -201,8 +209,190 @@ float getControllerCPUUsage()
 
 }
 
-//void writeLCD(const std::string &msg);
+namespace lcd {
+
+enum {
+    LCD_ADDRESS = 0x27,
+
+    LCD_CLEARDISPLAY = 0x01,
+    LCD_RETURNHOME = 0x02,
+    LCD_ENTRYMODESET = 0x04,
+    LCD_DISPLAYCONTROL = 0x08,
+    LCD_CURSORSHIFT = 0x10,
+    LCD_FUNCTIONSET = 0x20,
+    LCD_SETCGRAMADDR = 0x40,
+    LCD_SETDDRAMADDR = 0x80,
+
+    LCD_ENTRYRIGHT = 0x00,
+    LCD_ENTRYLEFT = 0x02,
+    LCD_ENTRYSHIFTINCREMENT = 0x01,
+    LCD_ENTRYSHIFTDECREMENT = 0x00,
+
+    LCD_DISPLAYON = 0x04,
+    LCD_DISPLAYOFF = 0x00,
+    LCD_CURSORON = 0x02,
+    LCD_CURSOROFF = 0x00,
+    LCD_BLINKON = 0x01,
+    LCD_BLINKOFF = 0x00,
+
+    LCD_DISPLAYMOVE = 0x08,
+    LCD_CURSORMOVE = 0x00,
+    LCD_MOVERIGHT = 0x04,
+    LCD_MOVELEFT = 0x00,
+
+    LCD_8BITMODE = 0x10,
+    LCD_4BITMODE = 0x00,
+    LCD_2LINE = 0x08,
+    LCD_1LINE = 0x00,
+    LCD_5x10DOTS = 0x04,
+    LCD_5x8DOTS = 0x00,
+
+    LCD_BACKLIGHT = 0x08,
+    LCD_NOBACKLIGHT = 0x00,
+
+    En = 0b00000100,
+    Rw = 0b00000010,
+    Rs = 0b00000001,
+
+};
+
+
+class IOExpander {
+    public:
+        std::uint8_t data = 0;
+        bool rs = false;
+        bool rw = false;
+        bool en = false;
+        bool backlight = false;
+        IOExpander(unsigned address) : address(address) {
+        }
+
+        void update() {
+            #ifndef BUILD_WITH_ROBOT_STUBS
+
+            std::uint8_t packet = 
+                        (rs?Rs:0) |
+                        (rw?Rw:0) |
+                        (en?En:0) |
+                        (backlight?LCD_BACKLIGHT:0) |
+                        (data << 4);
+
+            char command[] = {
+                PI_I2C_ADDR,
+                address,
+                PI_I2C_START,
+                PI_I2C_WRITE,
+                1,
+                packet,
+                PI_I2C_STOP,
+                PI_I2C_END
+            };
+
+            int result;
+            while ((result = bbI2CZip(i2cHandleController, command, sizeof(command), nullptr, 0)) == PI_I2C_WRITE_FAILED) {
+                std::cout << "i2c write error: " << result << std::endl;
+            }
+            if (result != 0)
+                throw std::runtime_error("i2c error!");
+                
+            #endif            
+        }
+
+        void send4bits(std::uint8_t bits) {
+            data = bits;
+            {
+                std::lock_guard<std::mutex> lock(i2cBusMutex);
+
+                en = false;
+                update();
+                en = true;
+                update();
+            }
+            std::this_thread::sleep_for(std::chrono::microseconds{500});
+            {
+                std::lock_guard<std::mutex> lock(i2cBusMutex);
+                en = false;
+                update();
+            }
+            std::this_thread::sleep_for(std::chrono::microseconds{100});
+        }
+        void send8bits(std::uint8_t bits) {
+            send4bits((bits >> 4) & 0x0F);
+            send4bits(bits & 0x0F);
+        }
+    protected:
+        unsigned address;
+};
+
+
+IOExpander expander(LCD_ADDRESS);
+
+void initDisplay()
+{
+    expander.backlight = true;
+
+
+    expander.rs = false;
+    expander.rw = false;
+
+    // Init by Instruction (forces reset), p45
+    expander.send4bits(3);
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    expander.send4bits(3);
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    expander.send4bits(3);
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+
+
+    // Init sequence 4bit, p42
+    expander.send4bits(LCD_FUNCTIONSET >> 4);
+
+    expander.send8bits(LCD_FUNCTIONSET | LCD_2LINE | LCD_5x8DOTS | LCD_4BITMODE);
+    expander.send8bits(LCD_DISPLAYCONTROL | LCD_DISPLAYON);
+
+    expander.send8bits(LCD_CLEARDISPLAY);
+    expander.send8bits(LCD_ENTRYMODESET | LCD_ENTRYLEFT);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds{200});
+}
+
+void clear()
+{
+    expander.send8bits(LCD_CLEARDISPLAY);
+    expander.send8bits(LCD_RETURNHOME);
+}
+
+void backlight(bool on)
+{
+    std::lock_guard<std::mutex> lock(i2cBusMutex);
+    expander.backlight = on;
+    expander.en = false;
+    expander.update();
+}
+
+void writeLine(const std::string &msg, unsigned line)
+{
+    setCursor(line, 0);
+    write(msg);
+}
+
+void setCursor(unsigned line, unsigned col)
+{
+    expander.rs = false;
+    expander.send8bits(LCD_SETDDRAMADDR | line * 0x40 + col);
+}
+
+void write(const std::string &msg)
+{
+    expander.rs = true;
+    for (auto c : msg)
+        expander.send8bits(c);
+}
+
+
+}
     
 }
+
 
 

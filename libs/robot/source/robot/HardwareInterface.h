@@ -19,6 +19,8 @@
 #ifndef HARDWAREINTERFACE_H
 #define HARDWAREINTERFACE_H
 
+#include <string>
+
 #include <cstdint>
 
 namespace hardwareInterface {
@@ -35,7 +37,16 @@ float getControllerCPUUsage();
 
 }
 
-//void writeLCD(const std::string &msg);
+namespace lcd {
+
+void initDisplay();
+void clear();
+void backlight(bool on);
+void writeLine(const std::string &msg, unsigned line);
+void setCursor(unsigned line, unsigned col);
+void write(const std::string &msg);
+
+}
     
 }
 

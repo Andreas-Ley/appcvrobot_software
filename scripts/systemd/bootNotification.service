@@ -1,0 +1,11 @@
+[Unit]
+Description=Display boot message on LCD screen
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/home/pi/software/software_appcvrobot/scripts/onBoot.sh
+ExecStop=/bin/true
+
+[Install]
+WantedBy=multi-user.target

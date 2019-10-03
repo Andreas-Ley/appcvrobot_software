@@ -34,10 +34,6 @@ Robot Robot::robot;
 
 Robot::Robot()
 {
-#ifndef BUILD_WITH_ROBOT_STUBS
-    if (gpioInitialise() < 0)
-        throw std::runtime_error("GPIO initialization failed!");
-#endif
     hardwareInterface::init();
     
     m_terminate.store(false);
@@ -55,9 +51,6 @@ Robot::~Robot()
         s->fullStop();
     
     hardwareInterface::shutdown();
-#ifndef BUILD_WITH_ROBOT_STUBS
-    gpioTerminate();
-#endif
 }
 
 void Robot::addSubsystem(std::unique_ptr<Subsystem> subsystem)

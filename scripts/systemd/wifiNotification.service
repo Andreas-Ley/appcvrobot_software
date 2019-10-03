@@ -1,0 +1,13 @@
+[Unit]
+Description=Display wifi message on LCD screen
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/home/pi/software/software_appcvrobot/scripts/onWifi.sh
+ExecStop=/bin/true
+
+[Install]
+WantedBy=multi-user.target

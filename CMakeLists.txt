@@ -35,6 +35,7 @@ endif(BUILD_WITH_ORB_SLAM)
 add_subdirectory(libs/robot/)
 
 add_subdirectory(executables/DebugDashboard/)
+add_subdirectory(executables/LCDTest/)
 if(BUILD_WITH_ORB_SLAM)
 add_subdirectory(executables/ORBSLAM_Test/)
 endif(BUILD_WITH_ORB_SLAM)
