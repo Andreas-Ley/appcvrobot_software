@@ -109,6 +109,9 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
                 
                 m_state.memTotal_KB = sinfo.totalram / 1024;
                 m_state.memAvailable_KB = (sinfo.freeram + sinfo.bufferram) / 1024;
+                
+                m_state.cellVoltage_div20[0] = std::min<int>(std::max<int>(cellVoltage1 / 20.0f, 0), 255);
+                m_state.batteryDrawAmps_div100 = std::min<int>(std::max<int>(batteryCurrentDraw / 100.0f, 0), 255);
             }
             
             if (m_wifiCommunication != nullptr) {
