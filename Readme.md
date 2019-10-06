@@ -50,6 +50,12 @@ Optional: Configure various options
     ccmake ./
 
 
+## Installation of firmware
+
+Remove microcontroller from socket and plug in programmer on the side pins.
+In the arduino ide, select the "Arduino Pro Mini" in the variant "ATMega 328P 8MHz 3.3V".
+Compile and upload the project in the firmware folder.
+Disconnect programmer and plug microcontroller back into the socket.
 
 
 ## ffmpeg Video streaming
