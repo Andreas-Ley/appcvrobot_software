@@ -50,19 +50,15 @@ inline void operateMotor(uint16_t stepDelay)
         digitalWrite(pinStep, toggle[idx]);
 
         if (toggle[idx]) {
-          noInterrupts();           // disable all interrupts
           stepsTaken[idx] += direction[idx];
-          interrupts();             // enable all interrupts
         }
     }
 } 
 
 ISR(TIMER1_COMPA_vect)
 {
-    noInterrupts();           // disable all interrupts
     uint16_t stepDelayL = stepDelays[0];
     uint16_t stepDelayR = stepDelays[1];
-    interrupts();             // enable all interrupts
 
     if (stepDelayL != 0)
       operateMotor<PIN_STEP_L, 0>(stepDelayL);
