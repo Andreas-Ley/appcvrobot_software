@@ -43,6 +43,8 @@ class SystemMonitoring : public Subsystem
             std::uint32_t memAvailable_KB = 0;
             std::uint32_t cpuFreq_KHz[4] = {};
             std::uint8_t cpuUsage[5] = {};
+            std::uint8_t cellVoltage_div20[3] = {};
+            std::uint8_t batteryDrawAmps_div100 = 0;
         };
         
         

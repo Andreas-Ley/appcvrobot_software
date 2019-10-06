@@ -28,8 +28,22 @@ namespace hardwareInterface {
 void init();
 void shutdown();
 
+namespace battery {
+
+enum Cell {
+    CELL_1 = 0,
+    CELL_2 = 1,
+    CELL_3 = 2,
+};
+
+float getCellVoltage(Cell cell);
+float getBatteryCurrentAmps();
+    
+}
+
 namespace motors {
 
+// todo: change to software mode
 void enable(bool enable);
 void setSpeed(float left, float right);
 void getSteps(std::int16_t &left, std::int16_t &right);

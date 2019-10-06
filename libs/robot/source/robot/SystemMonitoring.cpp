@@ -20,6 +20,7 @@
 
 #include "WifiCommunication.h"
 
+#include "HardwareInterface.h"
 
 #include <boost/format.hpp>
 
@@ -28,6 +29,8 @@
 #include <fstream>
 #include <sys/statvfs.h>
 #include <sys/sysinfo.h>
+
+#include <iostream>
 
 namespace robot {
     
@@ -56,6 +59,13 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
         while (!m_shutdown.load()) {
             
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+            
+            float cellVoltage1 = hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_1);
+            float batteryCurrentDraw = hardwareInterface::battery::getBatteryCurrentAmps();
+            
+            std::cout << "Cell voltage: " << cellVoltage1 << " V" << std::endl;
+            std::cout << "Draw: " << batteryCurrentDraw << " A" << std::endl;
+            
             
             unsigned temp = ~0u;
             {

@@ -62,22 +62,114 @@ void shutdown()
 #endif
 }
 
-namespace motors {
+template<typename Type>
+void readRegister(unsigned address, unsigned registerNumber, Type &data)
+{
+    std::lock_guard<std::mutex> lock(i2cBusMutex);
 
-void enable(bool enable)
+    int result = 0;
+    
+#ifndef BUILD_WITH_ROBOT_STUBS
+    
+    char command[] = {
+        PI_I2C_ADDR,
+        address,
+        PI_I2C_START,
+        PI_I2C_WRITE,
+        1,
+        registerNumber,
+        PI_I2C_START,
+        PI_I2C_READ,
+        sizeof(data),
+        PI_I2C_STOP,
+        PI_I2C_END
+    };
+
+    int res;
+    while ((res = bbI2CZip(i2cHandleController, command, sizeof(command), (char*)&data, sizeof(data))) < 0) {
+        std::cout << "i2c write error: " << result << std::endl;
+    }
+    result = buf;
+#endif
+}
+
+template<typename Type>
+void writeRegister(unsigned address, unsigned registerNumber, const Type &data)
 {
     std::lock_guard<std::mutex> lock(i2cBusMutex);
 #ifndef BUILD_WITH_ROBOT_STUBS
-    if (i2cWriteByteData(i2cHandleController, REGISTER_ENABLE_MOTOR, enable?1:0) != 0)
+    
+    char command[6+2+sizeof(data)] = {
+        PI_I2C_ADDR,
+        address,
+        PI_I2C_START,
+        PI_I2C_WRITE,
+        1 + sizeof(data),
+        registerNumber,
+    };
+    memcpy(command+6, &data, sizeof(data));
+    command[6+sizeof(data)+0] = PI_I2C_STOP;
+    command[6+sizeof(data)+1] = PI_I2C_END;
+
+    int result;
+    while ((result = bbI2CZip(i2cHandleController, command, sizeof(command), nullptr, 0)) == PI_I2C_WRITE_FAILED) {
+        std::cout << "i2c write error: " << result << std::endl;
+    }
+    if (result != 0)
         throw std::runtime_error("i2c error!");
 #endif
 }
 
+namespace battery {
+
+float getCellVoltage(Cell cell)
+{
+    std::uint16_t buf;
+    switch (cell) {
+        case CELL_1:
+            readRegister(I2C_ADDRESS, REGISTER_CELL_VOLTAGE_1, buf);
+            return (buf / 1023.0f * 3.3) / 100 * (33+100);
+        break;
+        case CELL_2:
+            return -1.0f;  // not working yet
+        break;
+        case CELL_3:
+            return -1.0f;  // not working yet
+        break;
+    }
+}
+
+float getBatteryCurrentAmps()
+{
+    std::uint16_t buf;
+    readRegister(I2C_ADDRESS, REGISTER_BATTERY_DRAW, buf);
+    float vOut = (buf / 1023.0f * 3.3);
+    
+    float r1 = 10;
+    float r2 = 33;
+    float r3 = 33;
+    float r4 = 22;
+
+    //vOut = -v * r3/r1 + 
+    
+    float v = (5.0f * r4/(r2+r4)*(r1+r3)/r1 - vOut) * r1 / r3;
+
+    //sensitivity: 185 mV/A
+    return v / 0.185f;
+}
+    
+}
+
+
+namespace motors {
+
+void enable(bool enable)
+{
+    writeRegister<char>(I2C_ADDRESS, REGISTER_ENABLE_MOTOR, enable?1:0);
+}
+
 void setSpeed(float left, float right)
 {
-//std::cout << "setSpeed("<<left<<", " << right << ");" << std::endl;
-    std::lock_guard<std::mutex> lock(i2cBusMutex);
-
     auto speed2delay = [](float speed)->std::int16_t{
         speed = std::min(std::max(speed, -1.0f), 1.0f);
         
@@ -101,72 +193,13 @@ void setSpeed(float left, float right)
         speed2delay(right)
     };
     
-#ifndef BUILD_WITH_ROBOT_STUBS
-#if 0 
-    while (i2cWriteI2CBlockData(i2cHandleController, REGISTER_SET_TARGET_SPEED, (char*)delays, 4) != 0) {
-        std::cout << "i2c error!" << std::endl;
-//        throw std::runtime_error("i2c error!");
-    }
-#else
-    char command[] = {
-        PI_I2C_ADDR,
-        I2C_ADDRESS,
-        PI_I2C_START,
-        PI_I2C_WRITE,
-        5,
-        REGISTER_SET_TARGET_SPEED,
-        delays[0] & 0xFF,
-        (delays[0] >> 8) & 0xFF,
-        delays[1] & 0xFF,
-        (delays[1] >> 8) & 0xFF,
-        PI_I2C_STOP,
-        PI_I2C_END
-    };
-
-    int result;
-    while ((result = bbI2CZip(i2cHandleController, command, sizeof(command), nullptr, 0)) == PI_I2C_WRITE_FAILED) {
-        std::cout << "i2c write error: " << result << std::endl;
-    }
-    if (result != 0)
-        throw std::runtime_error("i2c error!");
-    
-#endif
-#endif
-    
+    writeRegister(I2C_ADDRESS, REGISTER_SET_TARGET_SPEED, delays);
 }
 
 void getSteps(std::int16_t &left, std::int16_t &right)
 {
-    std::lock_guard<std::mutex> lock(i2cBusMutex);
-
     std::int16_t buf[2] = {};
-#ifndef BUILD_WITH_ROBOT_STUBS
-#if 0 
-    if (i2cReadI2CBlockData(i2cHandleController, REGISTER_STEPS_MOVED, (char*)buf, 4) != 4)
-        throw std::runtime_error("i2c error!");
-#else
-    char command[] = {
-        PI_I2C_ADDR,
-        I2C_ADDRESS,
-        PI_I2C_START,
-        PI_I2C_WRITE,
-        1,
-        REGISTER_STEPS_MOVED,
-        PI_I2C_START,
-        PI_I2C_READ,
-        4,
-        PI_I2C_STOP,
-        PI_I2C_END
-    };
-
-    int result;
-    while ((result = bbI2CZip(i2cHandleController, command, sizeof(command), (char*)&buf, 4)) < 0) {
-        std::cout << "i2c write error: " << result << std::endl;
-    }
-    if (result < 0)
-        throw std::runtime_error("i2c error!");
-#endif
-#endif
+    readRegister(I2C_ADDRESS, REGISTER_STEPS_MOVED, buf);
     left = buf[0];
     right = buf[1];
 }
@@ -175,36 +208,9 @@ float getControllerCPUUsage()
 {
     std::lock_guard<std::mutex> lock(i2cBusMutex);
 
-    int result = 0;
-    
-#ifndef BUILD_WITH_ROBOT_STUBS
-#if 0 
-    if ((result = i2cReadByteData(i2cHandleController, REGISTER_CPU_USAGE)) < 0)
-        throw std::runtime_error("i2c error!");
-#else
     char buf;
-    char command[] = {
-        PI_I2C_ADDR,
-        I2C_ADDRESS,
-        PI_I2C_START,
-        PI_I2C_WRITE,
-        1,
-        REGISTER_CPU_USAGE,
-        PI_I2C_START,
-        PI_I2C_READ,
-        1,
-        PI_I2C_STOP,
-        PI_I2C_END
-    };
-
-    int res;
-    while ((res = bbI2CZip(i2cHandleController, command, sizeof(command), (char*)&buf, 1)) < 0) {
-        std::cout << "i2c write error: " << result << std::endl;
-    }
-    result = buf;
-#endif
-#endif
-    return result / 255.0f;
+    readRegister(I2C_ADDRESS, REGISTER_CPU_USAGE, buf);
+    return buf / 255.0f;
 }
 
 }
