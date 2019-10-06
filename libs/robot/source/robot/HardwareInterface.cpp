@@ -130,7 +130,7 @@ float getCellVoltage(Cell cell)
         case CELL_1:
             readRegister(I2C_ADDRESS, REGISTER_CELL_VOLTAGE_1, buf);
 //            return (buf / 1023.0f * 3.3) / 100 * (33+100);
-            return (buf / 1023.0f * 3.3) / 100 * (33+100)   * 3.76f / 3.68f; // correction factor with cheap multimeter....
+            return (buf / 1023.0f * 3.3) / 100 * (33+100)   * 3.70f / 3.68f; // correction factor with cheap multimeter....
         break;
         case CELL_2:
             return -1.0f;  // not working yet
@@ -157,7 +157,7 @@ float getBatteryCurrentAmps()
     float v = (5.0f * r4/(r2+r4)*(r1+r3)/r1 - vOut) * r1 / r3;
 
     //sensitivity: 185 mV/A
-    return v / 0.185f;
+    return (2.5f - v) / 0.185f;
 }
     
 }

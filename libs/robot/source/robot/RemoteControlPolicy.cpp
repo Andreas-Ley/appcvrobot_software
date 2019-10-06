@@ -39,7 +39,7 @@ void RemoteControlPolicy::operate(float dt) {
         if (age > std::chrono::milliseconds(2000) && !m_motorDisabled) {
     		std::cout << "No remote control signal, disabling motor drivers" << std::endl;
             m_motorDisabled = true;
-//            hardwareInterface::motors::enable(false);
+            hardwareInterface::motors::enable(false);
         }
     } else {
         if (m_motorDisabled) {
@@ -47,7 +47,6 @@ void RemoteControlPolicy::operate(float dt) {
             hardwareInterface::motors::enable(true);
         }
         Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(lastCmd.left, lastCmd.right);
-//        Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(1.0f, 0.0f);
     }
     
 }
