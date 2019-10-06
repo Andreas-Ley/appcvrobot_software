@@ -31,6 +31,7 @@ class RemoteControlPolicy : public Subsystem
         virtual void operate(float dt) override;
     protected:
         WifiCommunication *m_wifiCommunication;
+        bool m_motorDisabled = false;
 };
 
    

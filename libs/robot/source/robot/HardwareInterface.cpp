@@ -28,6 +28,7 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <string.h>
 
 namespace hardwareInterface {
     
@@ -49,6 +50,9 @@ void init()
     bbI2COpen(2, 3, 100'000);
     i2cHandleController = 2;
 //    i2cHandleController = i2cOpen(I2C_BUS, I2C_ADDRESS, 0);
+
+//    hardwareInterface::motors::enable(false);
+
 #endif
 }
 
@@ -67,8 +71,6 @@ void readRegister(unsigned address, unsigned registerNumber, Type &data)
 {
     std::lock_guard<std::mutex> lock(i2cBusMutex);
 
-    int result = 0;
-    
 #ifndef BUILD_WITH_ROBOT_STUBS
     
     char command[] = {
@@ -80,16 +82,15 @@ void readRegister(unsigned address, unsigned registerNumber, Type &data)
         registerNumber,
         PI_I2C_START,
         PI_I2C_READ,
-        sizeof(data),
+        sizeof(Type),
         PI_I2C_STOP,
         PI_I2C_END
     };
 
     int res;
-    while ((res = bbI2CZip(i2cHandleController, command, sizeof(command), (char*)&data, sizeof(data))) < 0) {
-        std::cout << "i2c write error: " << result << std::endl;
+    while ((res = bbI2CZip(i2cHandleController, command, sizeof(command), (char*)&data, sizeof(Type))) < 0) {
+        std::cout << "i2c read error: " << res << std::endl;
     }
-    result = buf;
 #endif
 }
 
@@ -99,15 +100,15 @@ void writeRegister(unsigned address, unsigned registerNumber, const Type &data)
     std::lock_guard<std::mutex> lock(i2cBusMutex);
 #ifndef BUILD_WITH_ROBOT_STUBS
     
-    char command[6+2+sizeof(data)] = {
+    char command[6+2+sizeof(Type)] = {
         PI_I2C_ADDR,
         address,
         PI_I2C_START,
         PI_I2C_WRITE,
-        1 + sizeof(data),
+        1 + sizeof(Type),
         registerNumber,
     };
-    memcpy(command+6, &data, sizeof(data));
+    memcpy(&command[6], &data, sizeof(Type));
     command[6+sizeof(data)+0] = PI_I2C_STOP;
     command[6+sizeof(data)+1] = PI_I2C_END;
 
@@ -128,7 +129,8 @@ float getCellVoltage(Cell cell)
     switch (cell) {
         case CELL_1:
             readRegister(I2C_ADDRESS, REGISTER_CELL_VOLTAGE_1, buf);
-            return (buf / 1023.0f * 3.3) / 100 * (33+100);
+//            return (buf / 1023.0f * 3.3) / 100 * (33+100);
+            return (buf / 1023.0f * 3.3) / 100 * (33+100)   * 3.76f / 3.68f; // correction factor with cheap multimeter....
         break;
         case CELL_2:
             return -1.0f;  // not working yet
@@ -150,7 +152,7 @@ float getBatteryCurrentAmps()
     float r3 = 33;
     float r4 = 22;
 
-    //vOut = -v * r3/r1 + 
+    //vOut = -v * r3/r1 + 5V * r4/(r2+r4)*(r1+r3)/r1
     
     float v = (5.0f * r4/(r2+r4)*(r1+r3)/r1 - vOut) * r1 / r3;
 
@@ -206,8 +208,6 @@ void getSteps(std::int16_t &left, std::int16_t &right)
 
 float getControllerCPUUsage()
 {
-    std::lock_guard<std::mutex> lock(i2cBusMutex);
-
     char buf;
     readRegister(I2C_ADDRESS, REGISTER_CPU_USAGE, buf);
     return buf / 255.0f;

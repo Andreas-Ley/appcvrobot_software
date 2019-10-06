@@ -49,6 +49,8 @@ Robot::~Robot()
     
     for (auto &s : m_subsystems)
         s->fullStop();
+
+    m_subsystems.clear();
     
     hardwareInterface::shutdown();
 }
