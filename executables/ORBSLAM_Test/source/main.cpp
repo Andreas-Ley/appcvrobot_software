@@ -93,7 +93,7 @@ class OrbSLAMSystem : public Subsystem
                         (y < 0) || (y >= height)) continue;
                     
                     unsigned color_r = 128 + std::min<int>(127, numObs * 20);
-                    unsigned color_g = 128 + std::max<int>(-128, std::min<int>(127, pos[2] * 200));
+                    unsigned color_g = 128 + std::max<int>(-128, std::min<int>(127, pos[1] * 200));
                     image.at<cv::Vec3b>(y, x)[0] = color_r;
                     image.at<cv::Vec3b>(y, x)[1] = color_g;
                     image.at<cv::Vec3b>(y, x)[2] = 0;
@@ -138,7 +138,8 @@ class OrbSLAMSystem : public Subsystem
 
                     if (poseValid) {
                         Eigen::Vector3f camPoints[3];
-                        camPoints[0] = Eigen::Vector3f(-pose(0, 3), -pose(1, 3), -pose(2, 3));
+                        //camPoints[0] = Eigen::Vector3f(-pose(0, 3), -pose(1, 3), -pose(2, 3));
+                        camPoints[0] = -pose.block<3, 3>(0, 0).transpose() * pose.block<3, 1>(0, 3);
                         float angle = std::atan2(-pose(2, 0), -pose(2, 2));
                         float size = 0.1f;
                         float fov_half = 160 / 2.0f / 180.0f * M_PI;
@@ -229,10 +230,12 @@ class Policy : public Subsystem
             
             if (!m_slam.getLastPoseValidSameThread()) {
                 //Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(-0.2f, -0.2f);
-                stop();
+                //stop();
+                Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(-0.1f, -0.1f);
                 std::cout << "Lost tracking!" << std::endl;
             } else {
-                Eigen::Vector2f location(-pose(0, 3), -pose(2, 3));
+                Eigen::Vector3f location3D = -pose.block<3, 3>(0, 0).transpose() * pose.block<3, 1>(0, 3);
+                Eigen::Vector2f location(location3D[0], location3D[2]);
                 float angle = std::atan2(pose(2, 0), pose(2, 2));
                 
 //                Eigen::Vector2f targetLocation = m_waypoints[m_currentWaypoint];
