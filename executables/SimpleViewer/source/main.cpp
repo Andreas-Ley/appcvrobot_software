@@ -133,7 +133,7 @@ int main(int argc, char **argv)
     
     while (true) {
 
-        for (unsigned i = 0; i < 10; i++) {
+        for (unsigned i = 0; i < 30; i++) {
             boost::array<char, 2048> recv_buf;
             udp::endpoint sender_endpoint;
 
@@ -235,7 +235,14 @@ int main(int argc, char **argv)
                         (boost::format("CPU-%d: %f%%  %dMHz") % i % (systemState.cpuUsage[i+1] * 100.0f / 255.0f) % (systemState.cpuFreq_KHz[i] / 1000)).str().c_str(), 
                         cv::Point(0, 150 + i*30),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         }
+
+        cv::putText(resizedRotatedFramebuffer, 
+                    (boost::format("Cell 1: %d V") % (systemState.cellVoltage_div20[0] / 20.0f)).str().c_str(), 
+                    cv::Point(900, 30),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         
+        cv::putText(resizedRotatedFramebuffer, 
+                    (boost::format("Battery draw: %d A") % (systemState.batteryDrawAmps_div100 / 100.0f)).str().c_str(), 
+                    cv::Point(900, 60),  cv::FONT_HERSHEY_SIMPLEX, 1.0f, cv::Scalar(255, 255, 255));
         
         cv::imshow("Camera view", resizedRotatedFramebuffer);  
         
@@ -328,7 +335,7 @@ int main(int argc, char **argv)
         int key = cv::waitKey(1);
         joystick.poll();
         if (key >= 0) {
-            std::cout << "key " << key << std::endl;
+            //std::cout << "key " << key << std::endl;
             switch (key) {
                 case 27:
                     return 0;
@@ -361,8 +368,8 @@ int main(int argc, char **argv)
         }
         
         if (!joystick.valid()) {
-            steerLeft *= 0.5f;
-            steerRight *= 0.5f;
+            steerLeft *= 1.0f;
+            steerRight *= 1.0f;
         } else {
             steerLeft = -joystick.axis[1] + joystick.axis[0] * 0.4f;
             steerRight = -joystick.axis[1] - joystick.axis[0] * 0.4f;
