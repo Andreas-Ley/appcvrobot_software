@@ -1,9 +1,57 @@
-#include <robot/HardwareInterface.h>
+#include <controlSocketProtocol/ControlSocketProtocol.h>
+
+
+#include <boost/asio.hpp>
+
+
 #include <iostream>
+#include <string.h>
+
+
+
+const char *socketFile = "robothardwarecontroller.socket";
+using boostSockProt = boost::asio::local::stream_protocol;
 
 
 int main(int argc, char **argv)
 {
+    
+    boost::asio::io_context ioContext;
+
+    boostSockProt::socket socket(ioContext);
+    socket.connect(boostSockProt::endpoint(socketFile));
+
+    struct {
+        robot::hardwareSocket::RequestCodes requestCode;
+        robot::hardwareSocket::RequestBodyLCDSetText body;
+    } request;
+    memset(&request, 0, sizeof(request));
+    
+    request.requestCode = robot::hardwareSocket::RequestCodes::LCD_SET_TEXT;
+    if (argc < 2) {
+        request.body.setLine(0, "Hello");
+        request.body.setLine(1, "    World!!!");
+    } else {
+        request.body.setLine(0, argv[1]);
+        if (argc > 2)
+            request.body.setLine(1, argv[2]);
+    }
+    
+    
+    boost::asio::write(socket, boost::asio::buffer(&request, sizeof(request)));
+    
+    robot::hardwareSocket::ResponseCodes response;
+    boost::asio::read(socket, boost::asio::buffer(&response, sizeof(response)));
+    
+    if (response == robot::hardwareSocket::ResponseCodes::OK) {
+        std::cout << "Success" << std::endl;
+        return 0;
+    } else {
+        std::cout << "Failure: " << (unsigned) response << std::endl;
+        return -1;
+    }
+    
+#if 0
     hardwareInterface::init();
 
     hardwareInterface::lcd::initDisplay();
@@ -21,4 +69,5 @@ int main(int argc, char **argv)
     hardwareInterface::shutdown();
 
     return 0;
+#endif
 }

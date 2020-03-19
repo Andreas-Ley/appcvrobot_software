@@ -15,6 +15,7 @@ target_include_directories(LCDTest PUBLIC
 
 target_link_libraries(LCDTest
     robot
+    controlSocketProtocol
     ${Boost_LIBRARIES}
     ${OpenCV_LIBS} 
 )
