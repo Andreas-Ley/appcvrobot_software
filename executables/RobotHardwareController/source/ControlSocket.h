@@ -34,6 +34,7 @@ class ControlSocket
 
         void onNewSession(const boost::system::error_code& error);
         void dropSession(Session *session);
+		
     protected:
         boost::asio::io_context& m_ioContext;
         boostSockProt::acceptor m_acceptor;

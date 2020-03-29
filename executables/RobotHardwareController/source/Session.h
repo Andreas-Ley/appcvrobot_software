@@ -34,6 +34,8 @@ class Session
 
         inline boostSockProt::socket &getSocket() { return m_socket; }
         inline void startSession() { startRecvRequestHead(); }
+		bool LcdAq = false;
+		bool MotorAq = false;
     protected:
         ControlSocket &m_controlSocket;
         boostSockProt::socket m_socket;

@@ -19,7 +19,7 @@
 #include "HardwareInterface.h"
 
 #ifndef BUILD_WITH_ROBOT_STUBS
-#include <pigpio.h>
+//#include <pigpio.h>
 #endif
 
 #include "../../../firmware/protocoll.h"
@@ -119,6 +119,27 @@ void writeRegister(unsigned address, unsigned registerNumber, const Type &data)
         throw std::runtime_error("i2c error!");
 #endif
 }
+namespace buttons{
+	
+	bool getButtons(Button button){
+	bool buf;
+	switch (button) {
+        case BUTTON_1:
+            readRegister(I2C_ADDRESS, REGISTER_BUTTON_1, buf);
+            return buf;
+        break;
+        case BUTTON_2:
+            readRegister(I2C_ADDRESS, REGISTER_BUTTON_2, buf);
+            return buf;  // not working yet
+        break;
+        case BUTTON_3:
+            readRegister(I2C_ADDRESS, REGISTER_BUTTON_3, buf);
+            return buf;  // not working yet
+        break;
+}
+	
+}
+
 
 namespace battery {
 
@@ -138,6 +159,8 @@ float getCellVoltage(Cell cell)
         break;
     }
 }
+
+
 
 float getBatteryCurrentAmps()
 {

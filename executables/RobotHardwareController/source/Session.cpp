@@ -20,9 +20,16 @@
 
 #include "ControlSocket.h"
 
+
+
+
+
+
 #include <boost/bind.hpp>
 
 #include <iostream>
+
+
 
 Session::Session(ControlSocket &controlSocket) : m_controlSocket(controlSocket), m_socket(controlSocket.getIOContext()) 
 {
@@ -42,13 +49,78 @@ void Session::onRequestHeadRecvd(const boost::system::error_code& error)
         m_controlSocket.dropSession(this);
     } else {
         switch (m_request.head) {
+								//BATERY
             case robot::hardwareSocket::RequestCodes::BATTERY_CELL_VOLTAGES:
                 onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
-            case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
-                startRecvRequestBody(sizeof(m_request.body.LCDSetText));
+			case robot::hardwareSocket::RequestCodes::CURRENT_DRAW:
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
-            // todo: other requests
+			case robot::hardwareSocket::RequestCodes::CONTOLLER_USAGE:
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
+            break;
+								//DRIVE
+			case robot::hardwareSocket::RequestCodes::DRIVE_ACQUIRE :
+				 if(robot::hardwareSocket::MotorAq==true){	//global
+					robot::hardwareSocket::MotorAq=false;
+					MotorAq=true;							//local
+				 }
+				 else(
+				 Sleep(1000);										// wait 1 sec and try again
+				 onRequestHeadRecvd(boost::system::error_code())
+				 )
+                
+            break;
+			case robot::hardwareSocket::RequestCodes::DRIVE_RELEASE:
+				if(MotorAq==true){
+					MotorAq=false;
+					robot::hardwareSocket::MotorAq=true;
+				}
+				
+            break;
+            case robot::hardwareSocket::RequestCodes::DRIVE_SET_SPEED:
+				if(MotorAq==true){
+                startRecvRequestBody(sizeof(m_request.body.driveSetSpeed));
+				}
+				
+				
+            break;
+			case robot::hardwareSocket::RequestCodes::DRIVE_GET_STEPS:
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
+            break;
+									//LCD
+			case robot::hardwareSocket::RequestCodes::LCD_ACQUIRE:
+				if(robot::hardwareSocket::LcdAq==true){
+					robot::hardwareSocket::LcdAq=false;
+					LcdAq=true;
+				 }
+				 else(
+				 Sleep(100);										// wait 100ms and try again
+				 onRequestHeadRecvd(boost::system::error_code())
+				 )  
+            break;
+			case robot::hardwareSocket::RequestCodes::LCD_RELEASE :
+				if(LcdAq==true){
+					LcdAq=false;
+					robot::hardwareSocket::LcdAq=true;
+				}
+				else{
+					//log
+            break;
+			case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
+				if(LcdAq==true){
+                startRecvRequestBody(sizeof(m_request.body.LCDSetText));
+				}
+				else{
+					
+				}
+            break;
+								//BUTTONS
+			case robot::hardwareSocket::RequestCodes::BUTTONS_PUSHED :
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
+            break;
+            
+			
             default:
                 m_response.head = robot::hardwareSocket::ResponseCodes::UNKNOWN_REQUEST;
                 startSendFailureCode();
@@ -71,15 +143,50 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
         m_controlSocket.dropSession(this);
     } else {
         switch (m_request.head) {
+									//BATERY
             case robot::hardwareSocket::RequestCodes::BATTERY_CELL_VOLTAGES:
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
-                m_response.body.cellVoltages.voltages[0] = 0.0f; // todo
-                m_response.body.cellVoltages.voltages[1] = 0.0f;
-                m_response.body.cellVoltages.voltages[2] = 0.0f;
+                m_response.body.cellVoltages.voltages[0] = hardwareInterface::battery::getCellVoltage(0);
+                m_response.body.cellVoltages.voltages[1] = hardwareInterface::battery::getCellVoltage(1);
+                m_response.body.cellVoltages.voltages[2] = hardwareInterface::battery::getCellVoltage(2);
                 startSendResponse(sizeof(m_response.body.cellVoltages));
             break;
-            case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
-                // todo: check if locked
+            
+			case robot::hardwareSocket::RequestCodes::CURRENT_DRAW:
+                m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                m_response.body.current.Current = hardwareInterface::battery::getBatteryCurrentAmps();
+                startSendResponse(sizeof(m_response.body.current));
+            break;
+			
+			
+			case robot::hardwareSocket::RequestCodes::CONTOLLER_USAGE:
+                m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                m_response.body.cpu.Cpu = hardwareInterface::motors::getControllerCPUUsage();
+  
+                startSendResponse(sizeof(m_response.body.cpu));
+            break;
+			
+							//DRIVE
+			
+			case robot::hardwareSocket::RequestCodes::DRIVE_GET_STEPS:
+                m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+				std::int16_t left;
+				std::int16_t right;
+				hardwareInterface::battery::getCellVoltage(&left,&right);
+                m_response.body.driveGetSteps.stepsLeft = left;
+                m_response.body.driveGetSteps.stepsRight = right;
+                startSendResponse(sizeof(m_response.body.driveGetSteps));
+            break;
+			
+			
+			case robot::hardwareSocket::RequestCodes::DRIVE_SET_SPEED:
+                m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                hardwareInterface::motors::setSpeed( m_response.body.driveSetSpeed.speedLeft, m_response.body.driveSetSpeed.speedRight));
+                startSendResponse(0);
+            break;
+										//LCD
+			case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
+               
 
 
                 // sanitize:
@@ -89,15 +196,28 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
                     m_request.body.LCDSetText.lines[i][robot::hardwareSocket::RequestBodyLCDSetText::LINE_LENGTH] = 0x00;
                 }
                 
-                // todo: actually do!
-                std::cout << "LCD set text:" << std::endl;
-                std::cout << m_request.body.LCDSetText.lines[0] << std::endl;
-                std::cout << m_request.body.LCDSetText.lines[1] << std::endl;
-
+                
+                //std::cout << "LCD set text:" << std::endl;
+                //std::cout << m_request.body.LCDSetText.lines[0] << std::endl;
+                //std::cout << m_request.body.LCDSetText.lines[1] << std::endl;
+				hardwareInterface::lcd::writeLine(m_request.body.LCDSetText.lines[0],0);
+				hardwareInterface::lcd::writeLine(m_request.body.LCDSetText.lines[1],1);
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
                 startSendResponse(0);
             break;
-            // todo: other requests
+								//BUTTONS
+			
+			case robot::hardwareSocket::RequestCodes::BUTTONS_PUSHED:
+                m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                m_response.body.buttons.button1 = hardwareInterface::buttons::getButtons(0);
+                m_response.body.buttons.button2 = hardwareInterface::buttons::getButtons(1);
+				m_response.body.buttons.button3 = hardwareInterface::buttons::getButtons(2);
+                startSendResponse(sizeof(m_response.body.buttons));
+            break;
+		
+			
+			
+            
             default:
                throw std::runtime_error("Unhandled request!");
         }

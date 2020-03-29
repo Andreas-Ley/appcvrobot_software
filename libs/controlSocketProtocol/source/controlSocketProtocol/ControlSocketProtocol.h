@@ -25,6 +25,9 @@
 
 namespace robot {   
 namespace hardwareSocket {
+	
+bool LcdAq = true;
+bool MotorAq = true;
 
 enum class RequestCodes : std::uint8_t 
 { 
@@ -42,6 +45,8 @@ enum class RequestCodes : std::uint8_t
     LCD_ACQUIRE             = 0x21, /// Acquire sole control over the LCD for fine-grained control
     LCD_RELEASE             = 0x22, /// Release sole control over the LCD for fine-grained control
     // button stuff
+	BUTTONS_PUSHED			= 0x30, 
+
     // addon stuff
 };
     
@@ -99,9 +104,33 @@ struct ResponseBodyDriveGetSteps {
     float stepsRight;
 } __attribute__((packed));
 
+struct ResponseBodyButtons {
+    bool button1;
+	bool button2;
+	bool button3;
+	
+} __attribute__((packed));
+
+
+struct ResponseBodyCpu {
+    float Cpu;
+	
+	
+} __attribute__((packed));
+
+
+struct ResponseBodyCurrent {
+    float Current;
+	
+	
+} __attribute__((packed));
+
 union AllResponseBodies {
     ResponseBodyCellVoltages cellVoltages;
     ResponseBodyDriveGetSteps driveGetSteps; 
+	ResponseBodyButtons buttons;
+	ResponseBodyCpu cpu;
+	ResponseBodyCurrent current;
 };
 
 struct Response {

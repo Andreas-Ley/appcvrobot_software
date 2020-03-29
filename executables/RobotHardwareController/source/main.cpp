@@ -34,12 +34,14 @@ int main()
     
     try {
         logfile << "Initializing gpio" << std::endl;
-        hardwareInterface::init();
-        atexit(shutdown);
+        hardwareInterface::init();//start I2C
+        atexit(shutdown); // execute when program terminates
 
-        system((std::string("rm ") + socketFile).c_str()); // todo: look for better option
-        
+        //system((std::string("rm ") + socketFile).c_str()); // todo: look for better option
+        unlink(socketFile);
+		
         boost::asio::io_context ioContext;
+
 
         ControlSocket ControlSocket(ioContext);
         
