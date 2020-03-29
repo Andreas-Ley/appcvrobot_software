@@ -66,7 +66,7 @@ void Session::onRequestHeadRecvd(const boost::system::error_code& error)
 					MotorAq=true;							//local
 				 }
 				 else(
-				 Sleep(1000);										// wait 1 sec and try again
+				 Sleep(100);										// wait 100 ms and try again
 				 onRequestHeadRecvd(boost::system::error_code())
 				 )
                 
