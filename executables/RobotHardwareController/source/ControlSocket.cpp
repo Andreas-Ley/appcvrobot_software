@@ -37,7 +37,7 @@ void ControlSocket::onNewSession(const boost::system::error_code& error)
         m_newSession->startSession();
         m_sessions.push_back(std::move(m_newSession));
     } else {
-        // todo: Log error!
+        logmsges=logmsges+"\nCannot start Session";
     }
 
     startAccepting();  
@@ -47,6 +47,7 @@ void ControlSocket::dropSession(Session *session)
 {
     for (auto &s : m_sessions)
         if (s.get() == session) {
+			logmsges=logmsges+(session->logmsg);//update log messages: are all session are going to be dropped eventually?
             s = std::move(m_sessions.back());
             m_sessions.pop_back();
             return;

@@ -45,7 +45,7 @@ void Session::startRecvRequestHead()
 void Session::onRequestHeadRecvd(const boost::system::error_code& error)
 {
     if (error) {
-        // todo: log
+        logmsg=logmsg+"\nRequest Head error";
         m_controlSocket.dropSession(this);
     } else {
         switch (m_request.head) {
@@ -76,13 +76,18 @@ void Session::onRequestHeadRecvd(const boost::system::error_code& error)
 					MotorAq=false;
 					robot::hardwareSocket::MotorAq=true;
 				}
+				else{
+					logmsg=logmsg+"\nDRIVE Release failed";
+				}
 				
             break;
             case robot::hardwareSocket::RequestCodes::DRIVE_SET_SPEED:
 				if(MotorAq==true){
                 startRecvRequestBody(sizeof(m_request.body.driveSetSpeed));
 				}
-				
+				else{
+				logmsg=logmsg+"\nDRIVE: no permission. Aquire first.";	
+				}
 				
             break;
 			case robot::hardwareSocket::RequestCodes::DRIVE_GET_STEPS:
@@ -105,14 +110,14 @@ void Session::onRequestHeadRecvd(const boost::system::error_code& error)
 					robot::hardwareSocket::LcdAq=true;
 				}
 				else{
-					//log
+				logmsg=logmsg+"\nLCD Release failed";
             break;
 			case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
 				if(LcdAq==true){
                 startRecvRequestBody(sizeof(m_request.body.LCDSetText));
 				}
 				else{
-					
+				logmsg=logmsg+"\nLCD: no permission. Aquire first.";	
 				}
             break;
 								//BUTTONS
@@ -139,7 +144,7 @@ void Session::startRecvRequestBody(std::size_t bodySize)
 void Session::onRequestBodyRecvd(const boost::system::error_code& error)
 {
     if (error) {
-        // todo: log
+        logmsg=logmsg+"\nRequest Body error";	
         m_controlSocket.dropSession(this);
     } else {
         switch (m_request.head) {
@@ -219,7 +224,9 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
 			
             
             default:
-               throw std::runtime_error("Unhandled request!");
+			  
+				logmsg=logmsg+"\nUnhandeled request";	
+				throw std::runtime_error("Unhandled request!");
         }
     }
 }
@@ -234,7 +241,7 @@ void Session::startSendResponse(std::size_t bodySize)
 void Session::onResponseSent(const boost::system::error_code& error)
 {
     if (error) {
-        // todo: log
+        logmsg=logmsg+"\nResponse sending failed";	
         m_controlSocket.dropSession(this);
     } else {
         startRecvRequestHead();

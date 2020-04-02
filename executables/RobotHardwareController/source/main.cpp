@@ -49,11 +49,13 @@ int main()
         timer.async_wait(boost::bind(&runPeriodicChecks, boost::ref(timer), boost::asio::placeholders::error));
 
         ioContext.run();
-        
+		
+		
     } catch (const std::exception &e) {
         logfile << "An exception occured: " << e.what() << std::endl;
     }
 
-
+	logfile << ControlSocket.logmsges;
+        
     return 0;
 }

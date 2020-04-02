@@ -30,6 +30,7 @@ class ControlSocket;
 class Session
 {
     public:
+		std::string logmsg="";
         Session(ControlSocket &controlSocket);
 
         inline boostSockProt::socket &getSocket() { return m_socket; }

@@ -22,12 +22,15 @@
 #include "config.h"
 #include "Session.h"
 
+
 #include <boost/asio.hpp>
 #include <memory.h>
 
 class ControlSocket
 {
     public:
+	
+		std::string logmsges="";
         ControlSocket(boost::asio::io_context& ioContext);
         
         inline boost::asio::io_context& getIOContext() { return m_ioContext; }
