@@ -5,6 +5,15 @@
 #include "MotorControl.h"
 
 
+#define PIN_SWITCH_SENSE  (A7)
+#define PIN_HOLD_POWER  (13)
+#define PIN_BUTTON_EXECUTE  (0)
+#define PIN_BUTTON_STOP    (2)
+
+bool powerButtonReleased = false;
+bool initiateShutdown = false;
+
+uint8_t buttonsPressed = 0;
 
 void receiveEvent(int bytes);
 void requestEvent();
@@ -19,6 +28,12 @@ void setup() {
 
     motors::init();
     pinMode(LED_BUILTIN, OUTPUT);
+
+    pinMode(PIN_HOLD_POWER, OUTPUT);
+    digitalWrite(PIN_HOLD_POWER, HIGH);
+
+    pinMode(PIN_BUTTON_EXECUTE, INPUT_PULLUP);
+    pinMode(PIN_BUTTON_STOP, INPUT_PULLUP);
 }
 
 unsigned char cpuUsage = 0;
@@ -34,8 +49,8 @@ void loop() {
   unsigned end = micros();
   cpuUsage = 255 - (16383 / ((end-start)/255));
 
-  unsigned short tmp_cellVoltage1 = analogRead(A3);
-  unsigned short tmp_cellVoltage2 = analogRead(A2);
+  unsigned short tmp_cellVoltage1 = analogRead(A2);
+  unsigned short tmp_cellVoltage2 = analogRead(A3);
   unsigned short tmp_cellVoltage3 = analogRead(A1);
   unsigned short tmp_batteryDraw = analogRead(A0);
 
@@ -46,6 +61,23 @@ void loop() {
   batteryDraw = tmp_batteryDraw;
   interrupts();
 
+  unsigned short switchSense = analogRead(PIN_SWITCH_SENSE);
+
+  if (switchSense < 300)
+    powerButtonReleased = true;
+  else if (switchSense > 600 && powerButtonReleased) {
+    buttonsPressed |= BUTTON_POWER;
+  }
+
+  if (!digitalRead(PIN_BUTTON_EXECUTE))
+    buttonsPressed |= BUTTON_EXECUTE;
+  if (!digitalRead(PIN_BUTTON_STOP))
+    buttonsPressed |= BUTTON_STOP;
+
+  if (initiateShutdown) {
+    delay(5000);
+    digitalWrite(PIN_HOLD_POWER, LOW);
+  }
 }
 
 
@@ -61,8 +93,11 @@ Serial.print("recieve event ");
 Serial.print(lastAccessedRegister);
 */
 	switch (lastAccessedRegister) {
+    case REGISTER_INITIATE_SHUTDOWN: {
+      initiateShutdown = true;
+    } break;
 		case REGISTER_ENABLE_MOTOR: {
-      if (bytes != 1) break;
+      if (bytes != 2) break;
 			motors::setEnabled(Wire.read());
 		} break;
 		case REGISTER_SET_TARGET_SPEED: {
@@ -82,7 +117,7 @@ Serial.println("");
 			);
 		} break;
 		case REGISTER_SET_LED: {
-      if (bytes != 1) break;
+      if (bytes != 2) break;
 			digitalWrite(LED_BUILTIN, Wire.read()?HIGH:LOW);
 		} break;
 		case REGISTER_STEPS_MOVED: {
@@ -116,6 +151,10 @@ void requestEvent()
     } break;
     case REGISTER_CELL_VOLTAGE_3: {
       Wire.write((uint8_t*)&cellVoltage3, 2);
+    } break;
+    case REGISTER_BUTTONS: {
+      Wire.write(&buttonsPressed, 1);
+      buttonsPressed = 0;
     } break;
 	};
 }

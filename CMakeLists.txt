@@ -39,6 +39,8 @@ add_subdirectory(executables/RobotHardwareController/)
 
 ##### Utilities #####
 add_subdirectory(executables/LCDTest/)
+add_subdirectory(executables/DumpStatus/)
+add_subdirectory(executables/Shutdown/)
 
 ##### Robot Logic #####
 add_subdirectory(executables/DebugDashboard/)

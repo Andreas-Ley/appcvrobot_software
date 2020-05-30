@@ -3,10 +3,18 @@
 #include <Arduino.h>
 
 #define PIN_DIR_R  (1)
-#define PIN_STEP_R  (0)
-#define PIN_DIR_L  (6)
-#define PIN_STEP_L  (7)
+#define PIN_STEP_R  (3)
+#define PIN_DIR_L  (7)
+#define PIN_STEP_L  (9)
 #define PIN_ENABLE (8)
+
+#define PIN_MS1_R (6)
+#define PIN_MS2_R (5)
+#define PIN_MS3_R (4)
+
+#define PIN_MS1_L (10)
+#define PIN_MS2_L (11)
+#define PIN_MS3_L (12)
 
 namespace motors {
     
@@ -23,6 +31,23 @@ void init()
     pinMode(PIN_DIR_L, OUTPUT);
     pinMode(PIN_STEP_L, OUTPUT);
     pinMode(PIN_ENABLE, OUTPUT);
+
+    pinMode(PIN_MS1_R, OUTPUT);
+    pinMode(PIN_MS2_R, OUTPUT);
+    pinMode(PIN_MS3_R, OUTPUT);
+
+    pinMode(PIN_MS1_L, OUTPUT);
+    pinMode(PIN_MS2_L, OUTPUT);
+    pinMode(PIN_MS3_L, OUTPUT);
+
+    digitalWrite(PIN_MS1_R, LOW);
+    digitalWrite(PIN_MS2_R, LOW);
+    digitalWrite(PIN_MS3_R, LOW);
+    digitalWrite(PIN_MS1_L, LOW);
+    digitalWrite(PIN_MS2_L, LOW);
+    digitalWrite(PIN_MS3_L, LOW);
+
+    digitalWrite(PIN_ENABLE, LOW);
 
 
     noInterrupts();           // disable all interrupts

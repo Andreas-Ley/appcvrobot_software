@@ -14,6 +14,11 @@
 #define REGISTER_CELL_VOLTAGE_1   (0x11)
 #define REGISTER_CELL_VOLTAGE_2   (0x12)
 #define REGISTER_CELL_VOLTAGE_3   (0x13)
+#define REGISTER_INITIATE_SHUTDOWN         (0x20)
+#define REGISTER_BUTTONS                   (0x21)
+#define BUTTON_POWER          (0x01)
+#define BUTTON_EXECUTE        (0x02)
+#define BUTTON_STOP           (0x04)
 
 
 #endif
