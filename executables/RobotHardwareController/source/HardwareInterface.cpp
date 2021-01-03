@@ -19,7 +19,7 @@
 #include "HardwareInterface.h"
 
 #ifndef BUILD_WITH_ROBOT_STUBS
-//#include <pigpio.h>
+#include <pigpio.h>
 #endif
 
 #include "../../../firmware/protocoll.h"
