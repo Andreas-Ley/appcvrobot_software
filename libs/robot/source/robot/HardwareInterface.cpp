@@ -118,6 +118,30 @@ void writeRegister(unsigned address, unsigned registerNumber, const Type &data)
 #endif
 }
 
+
+void writeRegister(unsigned address, unsigned registerNumber)
+{
+    std::lock_guard<std::mutex> lock(i2cBusMutex);
+#ifndef BUILD_WITH_ROBOT_STUBS
+    
+    char command[6+2] = {
+        PI_I2C_ADDR,
+        address,
+        PI_I2C_START,
+        PI_I2C_WRITE,
+        1,
+        registerNumber,
+    };
+    int result;
+    while ((result = bbI2CZip(i2cHandleController, command, sizeof(command), nullptr, 0)) == PI_I2C_WRITE_FAILED) {
+        std::cout << "i2c write error: " << result << std::endl;
+    }
+    if (result != 0)
+        throw std::runtime_error("i2c error!");
+#endif
+}
+
+
 namespace battery {
 
 float getCellVoltage(Cell cell)
@@ -154,6 +178,11 @@ float getBatteryCurrentAmps()
 
     //sensitivity: 185 mV/A
     return v / 0.185f;
+}
+
+void killPower()
+{
+    writeRegister(I2C_ADDRESS, REGISTER_INITIATE_SHUTDOWN);
 }
     
 }

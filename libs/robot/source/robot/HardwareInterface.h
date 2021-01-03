@@ -28,6 +28,7 @@ namespace hardwareInterface {
 void init();
 void shutdown();
 
+
 namespace battery {
 
 enum Cell {
@@ -38,6 +39,8 @@ enum Cell {
 
 float getCellVoltage(Cell cell);
 float getBatteryCurrentAmps();
+
+void killPower();
     
 }
 
