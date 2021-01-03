@@ -26,9 +26,6 @@
 namespace robot {   
 namespace hardwareSocket {
 	
-bool LcdAq = true;
-bool MotorAq = true;
-
 enum class RequestCodes : std::uint8_t 
 { 
     // status stuff

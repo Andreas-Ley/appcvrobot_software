@@ -26,19 +26,18 @@
 #include <boost/asio.hpp>
 
 class ControlSocket;
+class Manager;
 
 class Session
 {
     public:
-		std::string logmsg="";
-        Session(ControlSocket &controlSocket);
+        Session(ControlSocket &controlSocket, Manager& manager);
 
         inline boostSockProt::socket &getSocket() { return m_socket; }
         inline void startSession() { startRecvRequestHead(); }
-		bool LcdAq = false;
-		bool MotorAq = false;
     protected:
         ControlSocket &m_controlSocket;
+        Manager& m_manager;
         boostSockProt::socket m_socket;
         
         robot::hardwareSocket::Request m_request;

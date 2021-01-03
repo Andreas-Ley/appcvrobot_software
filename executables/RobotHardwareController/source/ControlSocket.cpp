@@ -17,14 +17,15 @@
  */
 
 #include "ControlSocket.h"
+#include "Logger.h"
 
 #include <boost/bind.hpp>
 
 
 
 
-ControlSocket::ControlSocket(boost::asio::io_context& ioContext) : 
-    m_ioContext(ioContext), m_acceptor(ioContext, boostSockProt::endpoint(socketFile))
+ControlSocket::ControlSocket(boost::asio::io_context& ioContext, Manager& manager) : 
+    m_ioContext(ioContext), m_manager(manager), m_acceptor(ioContext, boostSockProt::endpoint(socketFile))
 {
     startAccepting();
 }
@@ -37,7 +38,7 @@ void ControlSocket::onNewSession(const boost::system::error_code& error)
         m_newSession->startSession();
         m_sessions.push_back(std::move(m_newSession));
     } else {
-        logmsges=logmsges+"\nCannot start Session";
+        logger.log(0) << "Cannot start Session"  << std::endl;
     }
 
     startAccepting();  
@@ -47,7 +48,6 @@ void ControlSocket::dropSession(Session *session)
 {
     for (auto &s : m_sessions)
         if (s.get() == session) {
-			logmsges=logmsges+(session->logmsg);//update log messages: are all session are going to be dropped eventually?
             s = std::move(m_sessions.back());
             m_sessions.pop_back();
             return;
@@ -59,7 +59,7 @@ void ControlSocket::dropSession(Session *session)
 
 void ControlSocket::startAccepting()
 {
-    m_newSession.reset(new Session(*this));
+    m_newSession.reset(new Session(*this, m_manager));
     m_acceptor.async_accept(m_newSession->getSocket(),
         boost::bind(&ControlSocket::onNewSession, this, boost::asio::placeholders::error));
 }

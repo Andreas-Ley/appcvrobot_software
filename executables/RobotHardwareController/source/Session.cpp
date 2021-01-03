@@ -17,13 +17,10 @@
  */
 
 #include "Session.h"
-
 #include "ControlSocket.h"
-
-
-
-
-
+#include "Logger.h"
+#include "Manager.h"
+#include "HardwareInterface.h"
 
 #include <boost/bind.hpp>
 
@@ -31,7 +28,9 @@
 
 
 
-Session::Session(ControlSocket &controlSocket) : m_controlSocket(controlSocket), m_socket(controlSocket.getIOContext()) 
+Session::Session(ControlSocket &controlSocket, Manager& manager) : m_controlSocket(controlSocket), 
+                m_manager(manager),
+                m_socket(controlSocket.getIOContext())
 {
 }
 
@@ -45,87 +44,48 @@ void Session::startRecvRequestHead()
 void Session::onRequestHeadRecvd(const boost::system::error_code& error)
 {
     if (error) {
-        logmsg=logmsg+"\nRequest Head error";
+        logger.log(0) << "Request Head error" << std::endl;
         m_controlSocket.dropSession(this);
     } else {
         switch (m_request.head) {
-								//BATERY
+                                //BATERY
             case robot::hardwareSocket::RequestCodes::BATTERY_CELL_VOLTAGES:
                 onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
-			case robot::hardwareSocket::RequestCodes::CURRENT_DRAW:
+            case robot::hardwareSocket::RequestCodes::CURRENT_DRAW:
                 onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
-			case robot::hardwareSocket::RequestCodes::CONTOLLER_USAGE:
+            case robot::hardwareSocket::RequestCodes::CONTOLLER_USAGE:
+            break;
+                                //DRIVE
+            case robot::hardwareSocket::RequestCodes::DRIVE_ACQUIRE :
                 onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
-								//DRIVE
-			case robot::hardwareSocket::RequestCodes::DRIVE_ACQUIRE :
-				 if(robot::hardwareSocket::MotorAq==true){	//global
-					robot::hardwareSocket::MotorAq=false;
-					MotorAq=true;							//local
-				 }
-				 else(
-				 Sleep(100);										// wait 100 ms and try again
-				 onRequestHeadRecvd(boost::system::error_code())
-				 )
-                
-            break;
-			case robot::hardwareSocket::RequestCodes::DRIVE_RELEASE:
-				if(MotorAq==true){
-					MotorAq=false;
-					robot::hardwareSocket::MotorAq=true;
-				}
-				else{
-					logmsg=logmsg+"\nDRIVE Release failed";
-				}
-				
+            case robot::hardwareSocket::RequestCodes::DRIVE_RELEASE:
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
             case robot::hardwareSocket::RequestCodes::DRIVE_SET_SPEED:
-				if(MotorAq==true){
                 startRecvRequestBody(sizeof(m_request.body.driveSetSpeed));
-				}
-				else{
-				logmsg=logmsg+"\nDRIVE: no permission. Aquire first.";	
-				}
-				
             break;
-			case robot::hardwareSocket::RequestCodes::DRIVE_GET_STEPS:
+            case robot::hardwareSocket::RequestCodes::DRIVE_GET_STEPS:
                 onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
-									//LCD
-			case robot::hardwareSocket::RequestCodes::LCD_ACQUIRE:
-				if(robot::hardwareSocket::LcdAq==true){
-					robot::hardwareSocket::LcdAq=false;
-					LcdAq=true;
-				 }
-				 else(
-				 Sleep(100);										// wait 100ms and try again
-				 onRequestHeadRecvd(boost::system::error_code())
-				 )  
+                                    //LCD
+            case robot::hardwareSocket::RequestCodes::LCD_ACQUIRE:
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
-			case robot::hardwareSocket::RequestCodes::LCD_RELEASE :
-				if(LcdAq==true){
-					LcdAq=false;
-					robot::hardwareSocket::LcdAq=true;
-				}
-				else{
-				logmsg=logmsg+"\nLCD Release failed";
+            case robot::hardwareSocket::RequestCodes::LCD_RELEASE :
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
-			case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
-				if(LcdAq==true){
+            case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
                 startRecvRequestBody(sizeof(m_request.body.LCDSetText));
-				}
-				else{
-				logmsg=logmsg+"\nLCD: no permission. Aquire first.";	
-				}
             break;
-								//BUTTONS
-			case robot::hardwareSocket::RequestCodes::BUTTONS_PUSHED :
+                                //BUTTONS
+            case robot::hardwareSocket::RequestCodes::BUTTONS_PUSHED :
                 onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
             
-			
+            
             default:
                 m_response.head = robot::hardwareSocket::ResponseCodes::UNKNOWN_REQUEST;
                 startSendFailureCode();
@@ -144,16 +104,16 @@ void Session::startRecvRequestBody(std::size_t bodySize)
 void Session::onRequestBodyRecvd(const boost::system::error_code& error)
 {
     if (error) {
-        logmsg=logmsg+"\nRequest Body error";	
+        logger.log(0) << "Request Body error" << std::endl;
         m_controlSocket.dropSession(this);
     } else {
         switch (m_request.head) {
 									//BATERY
             case robot::hardwareSocket::RequestCodes::BATTERY_CELL_VOLTAGES:
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
-                m_response.body.cellVoltages.voltages[0] = hardwareInterface::battery::getCellVoltage(0);
-                m_response.body.cellVoltages.voltages[1] = hardwareInterface::battery::getCellVoltage(1);
-                m_response.body.cellVoltages.voltages[2] = hardwareInterface::battery::getCellVoltage(2);
+                m_response.body.cellVoltages.voltages[0] = hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_1);
+                m_response.body.cellVoltages.voltages[1] = hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_2);
+                m_response.body.cellVoltages.voltages[2] = hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_3);
                 startSendResponse(sizeof(m_response.body.cellVoltages));
             break;
             
@@ -170,14 +130,39 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
   
                 startSendResponse(sizeof(m_response.body.cpu));
             break;
-			
-							//DRIVE
-			
+            
+                            //DRIVE
+            case robot::hardwareSocket::RequestCodes::DRIVE_ACQUIRE :
+                if (m_manager.tryAcquireLock(Manager::MOTOR, this)) {
+                    logger.log(2) << "Motor lock acquired by session" << std::endl;
+                    m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                    startSendResponse(0);
+                } else {
+                    logger.log(2) << "Session tried to acquire motor lock, but lock is being held by another session." << std::endl;
+                    m_response.head = robot::hardwareSocket::ResponseCodes::DRIVE_ALREADY_ACQUIRED;
+                    startSendResponse(0);
+                }
+            break;
+			case robot::hardwareSocket::RequestCodes::DRIVE_RELEASE:
+                if (m_manager.isLockedBy(Manager::MOTOR, this)){
+                
+                    m_manager.releaseLock(Manager::MOTOR);                    
+                    m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                    startSendResponse(0);
+                    
+                }else{
+                    logger.log(2) << "Session tried to release motor lock, but lock is not being held by this session." << std::endl;
+                    m_response.head = robot::hardwareSocket::ResponseCodes::DRIVE_WAS_NOT_ACQUIRED;
+                    startSendResponse(0);
+                    
+                }
+            break;
+
 			case robot::hardwareSocket::RequestCodes::DRIVE_GET_STEPS:
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
 				std::int16_t left;
 				std::int16_t right;
-				hardwareInterface::battery::getCellVoltage(&left,&right);
+				hardwareInterface::motors::getSteps(left, right);
                 m_response.body.driveGetSteps.stepsLeft = left;
                 m_response.body.driveGetSteps.stepsRight = right;
                 startSendResponse(sizeof(m_response.body.driveGetSteps));
@@ -185,15 +170,18 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
 			
 			
 			case robot::hardwareSocket::RequestCodes::DRIVE_SET_SPEED:
-                m_response.head = robot::hardwareSocket::ResponseCodes::OK;
-                hardwareInterface::motors::setSpeed( m_response.body.driveSetSpeed.speedLeft, m_response.body.driveSetSpeed.speedRight));
-                startSendResponse(0);
+                if (m_manager.isLockedBy(Manager::MOTOR, this)){
+                    m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                    hardwareInterface::motors::setSpeed(m_request.body.driveSetSpeed.speedLeft, m_request.body.driveSetSpeed.speedRight);
+                    startSendResponse(0);
+                }else{
+                    logger.log(2) << "Session tried to set motor speed, but lock is not being held by this session." << std::endl;
+                    m_response.head = robot::hardwareSocket::ResponseCodes::DRIVE_WAS_NOT_ACQUIRED;
+                    startSendResponse(0);
+                }
             break;
-										//LCD
-			case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
-               
-
-
+                                        //LCD
+            case robot::hardwareSocket::RequestCodes::LCD_SET_TEXT:
                 // sanitize:
                 for (unsigned i = 0; i < robot::hardwareSocket::RequestBodyLCDSetText::NUM_LINES; i++) {
                     for (unsigned j = 0; j < robot::hardwareSocket::RequestBodyLCDSetText::LINE_LENGTH; j++)
@@ -214,9 +202,11 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
 			
 			case robot::hardwareSocket::RequestCodes::BUTTONS_PUSHED:
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                /*
                 m_response.body.buttons.button1 = hardwareInterface::buttons::getButtons(0);
                 m_response.body.buttons.button2 = hardwareInterface::buttons::getButtons(1);
 				m_response.body.buttons.button3 = hardwareInterface::buttons::getButtons(2);
+				*/
                 startSendResponse(sizeof(m_response.body.buttons));
             break;
 		
@@ -225,7 +215,7 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
             
             default:
 			  
-				logmsg=logmsg+"\nUnhandeled request";	
+				logger.log(0) << "Unhandeled request" << std::endl;	
 				throw std::runtime_error("Unhandled request!");
         }
     }
@@ -241,7 +231,7 @@ void Session::startSendResponse(std::size_t bodySize)
 void Session::onResponseSent(const boost::system::error_code& error)
 {
     if (error) {
-        logmsg=logmsg+"\nResponse sending failed";	
+        logger.log(0) << "Response sending failed" << std::endl;	
         m_controlSocket.dropSession(this);
     } else {
         startRecvRequestHead();

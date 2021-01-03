@@ -11,6 +11,10 @@ add_executable(RobotHardwareController
     source/Session.h
     source/HardwareInterface.cpp
     source/HardwareInterface.h
+    source/Logger.cpp
+    source/Logger.h
+    source/Manager.cpp
+    source/Manager.h
     source/main.cpp
 )
 
@@ -18,7 +22,7 @@ target_include_directories(RobotHardwareController PUBLIC
     ${Boost_INCLUDE_DIRS}
 )
 
-target_link_libraries(RobotHardwareController
+target_link_libraries(RobotHardwareController PUBLIC
     ${Boost_LIBRARIES}
     controlSocketProtocol
     pthread

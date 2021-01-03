@@ -36,9 +36,9 @@ int main(int argc, char **argv)
                                << hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_3) << " ";
 
         std::cout << "Amps: " << hardwareInterface::battery::getBatteryCurrentAmps() << " ";
-
+/*
         std::cout << "Buttons: [";
-
+/*
         uint8_t buttons = hardwareInterface::getButtons();
         if (buttons & 1)
             std::cout << " power";
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
         if (buttons & 4)
             std::cout << " stop";
         std::cout << " ] ";
-
+*/
         std::cout << std::endl;
 
         boost::this_thread::sleep_for(boost::chrono::milliseconds(500));

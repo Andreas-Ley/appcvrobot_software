@@ -47,7 +47,7 @@ void init()
     digitalWrite(PIN_MS2_L, LOW);
     digitalWrite(PIN_MS3_L, LOW);
 
-    digitalWrite(PIN_ENABLE, LOW);
+    digitalWrite(PIN_ENABLE, HIGH);
 
 
     noInterrupts();           // disable all interrupts

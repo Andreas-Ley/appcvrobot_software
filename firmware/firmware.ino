@@ -75,7 +75,7 @@ void loop() {
     buttonsPressed |= BUTTON_STOP;
 
   if (initiateShutdown) {
-    delay(5000);
+    delay(2000);
     digitalWrite(PIN_HOLD_POWER, LOW);
   }
 }

@@ -26,12 +26,12 @@
 #include <boost/asio.hpp>
 #include <memory.h>
 
+class Manager;
 class ControlSocket
 {
-    public:
-	
-		std::string logmsges="";
-        ControlSocket(boost::asio::io_context& ioContext);
+    public:	
+		
+        ControlSocket(boost::asio::io_context& ioContext, Manager& manager);
         
         inline boost::asio::io_context& getIOContext() { return m_ioContext; }
 
@@ -40,6 +40,7 @@ class ControlSocket
 		
     protected:
         boost::asio::io_context& m_ioContext;
+        Manager& m_manager;
         boostSockProt::acceptor m_acceptor;
         
         std::unique_ptr<Session> m_newSession;

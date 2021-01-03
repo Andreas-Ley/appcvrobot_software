@@ -1,0 +1,9 @@
+[Unit]
+Description=Manages access to the robots hardware
+
+[Service]
+Type=oneshot
+ExecStart=/home/pi/software/software_appcvrobot/buildRel/executables/RobotHardwareController/RobotHardwareController
+
+[Install]
+WantedBy=multi-user.target

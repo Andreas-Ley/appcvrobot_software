@@ -43,17 +43,10 @@ float getBatteryCurrentAmps();
     
 }
 
-namespace buttons{
-	
-enum Button {
-	BUTTON_1 = 0,
-	BUTTON_2 = 1,
-	BUTTON_3 = 2,
-};
 
-bool getButtons(Button button);
-	
-}
+unsigned getButtons();
+
+
 namespace motors {
 
 void enable(bool enable);

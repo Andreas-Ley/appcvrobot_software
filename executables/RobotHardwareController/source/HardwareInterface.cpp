@@ -119,6 +119,7 @@ void writeRegister(unsigned address, unsigned registerNumber, const Type &data)
         throw std::runtime_error("i2c error!");
 #endif
 }
+/*
 namespace buttons{
 	
 	bool getButtons(Button button){
@@ -138,6 +139,14 @@ namespace buttons{
         break;
 }
 	
+}
+*/
+
+unsigned getButtons()
+{
+    std::uint8_t buf;
+    readRegister(I2C_ADDRESS, REGISTER_BUTTONS, buf);
+    return buf;
 }
 
 
@@ -179,6 +188,11 @@ float getBatteryCurrentAmps()
 
     //sensitivity: 185 mV/A
     return v / 0.185f;
+}
+
+void killPower()
+{
+    writeRegister<char>(I2C_ADDRESS, REGISTER_INITIATE_SHUTDOWN, 0);
 }
     
 }
