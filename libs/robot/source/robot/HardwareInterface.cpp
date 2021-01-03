@@ -86,7 +86,7 @@ void readRegister(unsigned address, unsigned registerNumber, Type &data)
 
     int res;
     while ((res = bbI2CZip(i2cHandleController, command, sizeof(command), (char*)&data, sizeof(data))) < 0) {
-        std::cout << "i2c write error: " << result << std::endl;
+        std::cout << "i2c write error: " << res << std::endl;
     }
 #endif
 }
