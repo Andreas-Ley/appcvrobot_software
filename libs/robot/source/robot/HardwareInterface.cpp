@@ -28,6 +28,7 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <string.h>
 
 namespace hardwareInterface {
     
