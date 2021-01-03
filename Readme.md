@@ -4,7 +4,7 @@
 
 The following packages are needed on raspbian:
 
-
+    sudo apt update
     sudo apt install \
             cmake gcc \
             libgpiod-dev \
@@ -13,7 +13,8 @@ The following packages are needed on raspbian:
             libboost-thread-dev \
             libasio-dev \
             libmagick++-dev \
-            libeigen3-dev
+            libeigen3-dev \
+            libopencv-dev
 
 Optional: Git to directly pull the repository, ccmake
 
