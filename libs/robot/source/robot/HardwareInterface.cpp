@@ -68,8 +68,6 @@ void readRegister(unsigned address, unsigned registerNumber, Type &data)
 {
     std::lock_guard<std::mutex> lock(i2cBusMutex);
 
-    int result = 0;
-    
 #ifndef BUILD_WITH_ROBOT_STUBS
     
     char command[] = {
@@ -90,7 +88,6 @@ void readRegister(unsigned address, unsigned registerNumber, Type &data)
     while ((res = bbI2CZip(i2cHandleController, command, sizeof(command), (char*)&data, sizeof(data))) < 0) {
         std::cout << "i2c write error: " << result << std::endl;
     }
-    result = buf;
 #endif
 }
 
