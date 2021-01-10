@@ -42,6 +42,8 @@ void Manager::checkButtons()
     
     if (buttons & 1) {
         logger.log(0) << "Power button pressed, initiating shutdown!" << std::endl;
+        hardwareInterface::lcd::writeLine("Power button pressed", 0);
+        hardwareInterface::lcd::writeLine("Shutting down", 1);
         
         system("shutdown now");
     }
@@ -59,6 +61,8 @@ void Manager::checkBatteries(){
             voltages.voltages[1] < 3.0f ||
             voltages.voltages[2] < 3.0f) {
         logger.log(0) << "Battery power is low, initiating shutdown!" << std::endl;
+        hardwareInterface::lcd::writeLine("Battery low", 0);
+        hardwareInterface::lcd::writeLine("Shutting down", 1);
         
         system("shutdown now");
     }
