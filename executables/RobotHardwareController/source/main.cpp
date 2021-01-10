@@ -26,6 +26,8 @@ int main()
     try {
         logger.log(0)  << "Initializing gpio" << std::endl;
         hardwareInterface::init();//start I2C
+        hardwareInterface::lcd::initDisplay();
+        hardwareInterface::lcd::clear();
         //atexit(shutdown); // execute when program terminates
 
         //system((std::string("rm ") + socketFile).c_str()); // todo: look for better option
