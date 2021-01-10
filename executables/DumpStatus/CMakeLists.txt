@@ -12,5 +12,6 @@ target_include_directories(DumpStatus PUBLIC
 
 target_link_libraries(DumpStatus
     robot
+    controlSocketProtocol
 )
 

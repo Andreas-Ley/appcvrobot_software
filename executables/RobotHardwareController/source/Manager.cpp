@@ -52,6 +52,17 @@ void Manager::checkButtons()
 }
 void Manager::checkBatteries(){
     
+    auto voltages = hardwareInterface::battery::getCellVoltages();
+    
+    if (
+            voltages.voltages[0] < 3.0f ||
+            voltages.voltages[1] < 3.0f ||
+            voltages.voltages[2] < 3.0f) {
+        logger.log(0) << "Battery power is low, initiating shutdown!" << std::endl;
+        
+        system("shutdown now");
+    }
+    
     m_batteryTimer.expires_at(m_batteryTimer.expires_at() + boost::posix_time::millisec((unsigned)CHECK_BATTERY_INTERVAL));
     m_batteryTimer.async_wait(boost::bind(&Manager::checkBatteries, this));
 }

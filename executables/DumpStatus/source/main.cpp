@@ -1,6 +1,7 @@
-#include <robot/HardwareInterface.h>
+#include <controlSocketProtocol/ControlSocketProtocol.h>
 
 #include <boost/thread/thread.hpp> 
+#include <boost/asio.hpp>
 
 #include <iostream>
 #include <signal.h>
@@ -8,34 +9,41 @@
 #include <stdio.h>
 #include <unistd.h>
 
-bool shutdown = false;
-
-void handler(int s)
-{
-    shutdown = true;
-}
-
 int main(int argc, char **argv)
 {
 
-    struct sigaction sigIntHandler;
+    const char *socketFile = "/var/run/robothardwarecontroller.socket";
+    using boostSockProt = boost::asio::local::stream_protocol;
 
-    sigIntHandler.sa_handler = handler;
-    sigemptyset(&sigIntHandler.sa_mask);
-    sigIntHandler.sa_flags = 0;
+    boost::asio::io_context ioContext;
 
-    sigaction(SIGINT, &sigIntHandler, NULL);
+    boostSockProt::socket socket(ioContext);
+    socket.connect(boostSockProt::endpoint(socketFile));
 
+    while (true) {
+        robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::BATTERY_CELL_VOLTAGES;
+        struct {
+            robot::hardwareSocket::ResponseCodes responseCode;
+            robot::hardwareSocket::ResponseBodyCellVoltages body;
+        } voltageResponse;
+        memset(&voltageResponse, 0, sizeof(voltageResponse));     
+        
+        boost::asio::write(socket, boost::asio::buffer(&requestCode, sizeof(requestCode)));
+        
+        boost::asio::read(socket, boost::asio::buffer(&voltageResponse, sizeof(voltageResponse)));
+        
+        if (voltageResponse.responseCode == robot::hardwareSocket::ResponseCodes::OK) {
+            std::cout << "Success" << std::endl;
+        } else {
+            std::cout << "Failure: " << (unsigned) voltageResponse.responseCode << std::endl;
+            return -1;
+        }
 
-    hardwareInterface::init();
+        std::cout << "Cells: " << voltageResponse.body.voltages[0] << " "
+                               << voltageResponse.body.voltages[1] << " "
+                               << voltageResponse.body.voltages[2] << " ";
 
-    while (!shutdown) {
-
-        std::cout << "Cells: " << hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_1) << " "
-                               << hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_2) << " "
-                               << hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_3) << " ";
-
-        std::cout << "Amps: " << hardwareInterface::battery::getBatteryCurrentAmps() << " ";
+//        std::cout << "Amps: " << hardwareInterface::battery::getBatteryCurrentAmps() << " ";
 /*
         std::cout << "Buttons: [";
 /*
@@ -52,8 +60,6 @@ int main(int argc, char **argv)
 
         boost::this_thread::sleep_for(boost::chrono::milliseconds(500));
     }
-
-    hardwareInterface::shutdown();
 
     return 0;
 }

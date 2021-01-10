@@ -1,4 +1,5 @@
 #include <controlSocketProtocol/ControlSocketProtocol.h>
+//#include <robot/HardwareInterface.h>
 
 
 #include <boost/asio.hpp>
@@ -8,14 +9,13 @@
 #include <string.h>
 
 
-
-const char *socketFile = "robothardwarecontroller.socket";
-using boostSockProt = boost::asio::local::stream_protocol;
-
-
 int main(int argc, char **argv)
 {
     
+#if 1
+    const char *socketFile = "/var/run/robothardwarecontroller.socket";
+    using boostSockProt = boost::asio::local::stream_protocol;
+
     boost::asio::io_context ioContext;
 
     boostSockProt::socket socket(ioContext);
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
         return -1;
     }
     
-#if 0
+#else
     hardwareInterface::init();
 
     hardwareInterface::lcd::initDisplay();

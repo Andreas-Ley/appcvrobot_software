@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.0)
 find_package( OpenCV REQUIRED )
 find_package(ImageMagick COMPONENTS Magick++ REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Boost COMPONENTS system thread REQUIRED) 
+find_package(Boost COMPONENTS system thread filesystem REQUIRED) 
 
 
 if(BUILD_WITH_ORB_SLAM)

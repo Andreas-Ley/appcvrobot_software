@@ -11,6 +11,7 @@ The following packages are needed on raspbian:
             libboost-dev \
             libboost-system-dev \
             libboost-thread-dev \
+            libboost-filesystem-dev \
             libasio-dev \
             libmagick++-dev \
             libeigen3-dev \

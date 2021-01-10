@@ -109,12 +109,14 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
     } else {
         switch (m_request.head) {
 									//BATERY
-            case robot::hardwareSocket::RequestCodes::BATTERY_CELL_VOLTAGES:
+            case robot::hardwareSocket::RequestCodes::BATTERY_CELL_VOLTAGES: {
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
-                m_response.body.cellVoltages.voltages[0] = hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_1);
-                m_response.body.cellVoltages.voltages[1] = hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_2);
-                m_response.body.cellVoltages.voltages[2] = hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_3);
+                auto v = hardwareInterface::battery::getCellVoltages();
+                m_response.body.cellVoltages.voltages[0] = v.voltages[0];
+                m_response.body.cellVoltages.voltages[1] = v.voltages[1];
+                m_response.body.cellVoltages.voltages[2] = v.voltages[2];
                 startSendResponse(sizeof(m_response.body.cellVoltages));
+            }
             break;
             
 			case robot::hardwareSocket::RequestCodes::CURRENT_DRAW:
@@ -200,15 +202,14 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
             break;
 								//BUTTONS
 			
-			case robot::hardwareSocket::RequestCodes::BUTTONS_PUSHED:
+			case robot::hardwareSocket::RequestCodes::BUTTONS_PUSHED: {
+                unsigned buttons = hardwareInterface::getButtons();
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
-                /*
-                m_response.body.buttons.button1 = hardwareInterface::buttons::getButtons(0);
-                m_response.body.buttons.button2 = hardwareInterface::buttons::getButtons(1);
-				m_response.body.buttons.button3 = hardwareInterface::buttons::getButtons(2);
-				*/
+                m_response.body.buttons.button1 = buttons & 1;
+                m_response.body.buttons.button2 = buttons & 2;
+				m_response.body.buttons.button3 = buttons & 4;
                 startSendResponse(sizeof(m_response.body.buttons));
-            break;
+            } break;
 		
 			
 			

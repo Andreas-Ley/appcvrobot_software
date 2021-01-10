@@ -123,19 +123,19 @@ namespace battery {
 
 float getCellVoltage(Cell cell)
 {
-    std::uint16_t buf;
-    switch (cell) {
-        case CELL_1:
-            readRegister(I2C_ADDRESS, REGISTER_CELL_VOLTAGE_1, buf);
-            return (buf / 1023.0f * 3.3) / 100 * (33+100);
-        break;
-        case CELL_2:
-            return -1.0f;  // not working yet
-        break;
-        case CELL_3:
-            return -1.0f;  // not working yet
-        break;
-    }
+//     std::uint16_t buf;
+//     switch (cell) {
+//         case CELL_1:
+//             readRegister(I2C_ADDRESS, REGISTER_CELL_VOLTAGE_1, buf);
+//             return (buf / 1023.0f * 3.3) / 100 * (33+100);
+//         break;
+//         case CELL_2:
+//             return -1.0f;  // not working yet
+//         break;
+//         case CELL_3:
+//             return -1.0f;  // not working yet
+//         break;
+//     }
 }
 
 float getBatteryCurrentAmps()

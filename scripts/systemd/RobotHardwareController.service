@@ -2,7 +2,7 @@
 Description=Manages access to the robots hardware
 
 [Service]
-Type=oneshot
+Type=simple
 ExecStart=/home/pi/software/software_appcvrobot/buildRel/executables/RobotHardwareController/RobotHardwareController
 
 [Install]

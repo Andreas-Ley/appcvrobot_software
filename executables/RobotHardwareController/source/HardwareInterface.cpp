@@ -150,21 +150,25 @@ unsigned getButtons()
 
 namespace battery {
 
-float getCellVoltage(Cell cell)
+    
+CellVoltages getCellVoltages()
 {
-    std::uint16_t buf;
-    switch (cell) {
-        case CELL_1:
-            readRegister(I2C_ADDRESS, REGISTER_CELL_VOLTAGE_1, buf);
-            return (buf / 1023.0f * 3.3) / 100 * (33+100);
-        break;
-        case CELL_2:
-            return -1.0f;  // not working yet
-        break;
-        case CELL_3:
-            return -1.0f;  // not working yet
-        break;
-    }
+    std::uint32_t v;
+    readRegister(I2C_ADDRESS, REGISTER_CELL_VOLTAGES, v);
+    CellVoltages cellVoltages;
+
+    auto unpack = [](std::uint32_t v, unsigned offset)->unsigned{
+        return (v >> offset) & ((1 << 10)-1);
+    };
+    
+    cellVoltages.voltages[0] = unpack(v, 0)  / 1024.0f * 4.5f * 1;
+    cellVoltages.voltages[1] = unpack(v, 10) / 1024.0f * 4.5f * 2;    
+    cellVoltages.voltages[2] = unpack(v, 20) / 1024.0f * 4.5f * 3;
+    
+    cellVoltages.voltages[2] -= cellVoltages.voltages[1];
+    cellVoltages.voltages[1] -= cellVoltages.voltages[0];
+    
+    return cellVoltages;
 }
 
 

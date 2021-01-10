@@ -21,13 +21,16 @@
 
 #include <boost/bind.hpp>
 
-
+#include <boost/filesystem.hpp>
 
 
 ControlSocket::ControlSocket(boost::asio::io_context& ioContext, Manager& manager) : 
     m_ioContext(ioContext), m_manager(manager), m_acceptor(ioContext, boostSockProt::endpoint(socketFile))
 {
     startAccepting();
+    
+    boost::filesystem::permissions(socketFile, boost::filesystem::add_perms | boost::filesystem::owner_write | boost::filesystem::group_write | boost::filesystem::others_write);
+
 }
 
 

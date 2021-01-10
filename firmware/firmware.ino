@@ -28,6 +28,7 @@ void setup() {
 
     motors::init();
     pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW);
 
     pinMode(PIN_HOLD_POWER, OUTPUT);
     digitalWrite(PIN_HOLD_POWER, HIGH);
@@ -37,11 +38,18 @@ void setup() {
 }
 
 unsigned char cpuUsage = 0;
-
 unsigned short cellVoltage1 = 0;
 unsigned short cellVoltage2 = 0;
 unsigned short cellVoltage3 = 0;
 unsigned short batteryDraw = 0;
+
+unsigned short lowVoltageCounter = 0;
+
+unsigned analogReadCounter = 0;
+  unsigned short tmp_cellVoltage1 = 0;
+  unsigned short tmp_cellVoltage2 = 0;
+  unsigned short tmp_cellVoltage3 = 0;
+  unsigned short tmp_batteryDraw = 0;
 
 void loop() {
   unsigned start = micros();
@@ -49,18 +57,41 @@ void loop() {
   unsigned end = micros();
   cpuUsage = 255 - (16383 / ((end-start)/255));
 
-  unsigned short tmp_cellVoltage1 = analogRead(A2);
-  unsigned short tmp_cellVoltage2 = analogRead(A3);
-  unsigned short tmp_cellVoltage3 = analogRead(A1);
-  unsigned short tmp_batteryDraw = analogRead(A0);
+  tmp_cellVoltage1 += analogRead(A2);
+  tmp_cellVoltage2 += analogRead(A3);
+  tmp_cellVoltage3 += analogRead(A1);
+  tmp_batteryDraw += analogRead(A0);
+  analogReadCounter++;
 
-  noInterrupts();
-  cellVoltage1 = tmp_cellVoltage1;
-  cellVoltage2 = tmp_cellVoltage2;
-  cellVoltage3 = tmp_cellVoltage3;
-  batteryDraw = tmp_batteryDraw;
-  interrupts();
+  if (analogReadCounter == 8) {
+    noInterrupts();
+    cellVoltage1 = tmp_cellVoltage1 / 8;
+    cellVoltage2 = tmp_cellVoltage2 / 8;
+    cellVoltage3 = tmp_cellVoltage3 / 8;
+    batteryDraw = tmp_batteryDraw / 8;
+    interrupts();
+    tmp_cellVoltage1 = 0;
+    tmp_cellVoltage2 = 0;
+    tmp_cellVoltage3 = 0;
+    tmp_batteryDraw = 0;
+    analogReadCounter = 0;
+  
+    bool emergencyShutdown = false;
+    if (cellVoltage1 < 637) // 2.8V
+        emergencyShutdown = true;
+    if (cellVoltage2*2 - cellVoltage1 < 637) // 2.8V
+        emergencyShutdown = true;
+    if (cellVoltage3*3 - cellVoltage2*2 < 637) // 2.8V
+        emergencyShutdown = true;
+  
+    if (emergencyShutdown)
+        lowVoltageCounter++;
+    else
+        lowVoltageCounter = 0;
 
+    if (lowVoltageCounter > 64)
+        digitalWrite(PIN_HOLD_POWER, LOW);
+  }
   unsigned short switchSense = analogRead(PIN_SWITCH_SENSE);
 
   if (switchSense < 300)
@@ -143,14 +174,11 @@ void requestEvent()
     case REGISTER_BATTERY_DRAW: {
       Wire.write((uint8_t*)&batteryDraw, 2);
     } break;
-    case REGISTER_CELL_VOLTAGE_1: {
-      Wire.write((uint8_t*)&cellVoltage1, 2);
-    } break;
-    case REGISTER_CELL_VOLTAGE_2: {
-      Wire.write((uint8_t*)&cellVoltage2, 2);
-    } break;
-    case REGISTER_CELL_VOLTAGE_3: {
-      Wire.write((uint8_t*)&cellVoltage3, 2);
+    case REGISTER_CELL_VOLTAGES: {
+      int32_t v = (int32_t)cellVoltage1 |
+                (  ((int32_t)cellVoltage2) << 10 ) |
+                (  ((int32_t)cellVoltage3) << 20 );
+      Wire.write((uint8_t*)&v, 4);
     } break;
     case REGISTER_BUTTONS: {
       Wire.write(&buttonsPressed, 1);

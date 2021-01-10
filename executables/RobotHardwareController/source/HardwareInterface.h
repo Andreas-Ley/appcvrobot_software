@@ -30,15 +30,11 @@ void shutdown();
 
 namespace battery {
 
-enum Cell {
-    CELL_1 = 0,
-    CELL_2 = 1,
-    CELL_3 = 2,
+struct CellVoltages{
+    float voltages[3];
 };
 
-
-
-float getCellVoltage(Cell cell);
+CellVoltages getCellVoltages();
 float getBatteryCurrentAmps();
     
 }
