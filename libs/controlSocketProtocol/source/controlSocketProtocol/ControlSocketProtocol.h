@@ -97,8 +97,8 @@ struct ResponseBodyCellVoltages {
 } __attribute__((packed));
 
 struct ResponseBodyDriveGetSteps {
-    float stepsLeft;
-    float stepsRight;
+    int stepsLeft;
+    int stepsRight;
 } __attribute__((packed));
 
 struct ResponseBodyButtons {
@@ -110,14 +110,14 @@ struct ResponseBodyButtons {
 
 
 struct ResponseBodyCpu {
-    float Cpu;
+    float cpu;
 	
 	
 } __attribute__((packed));
 
 
 struct ResponseBodyCurrent {
-    float Current;
+    float current;
 	
 	
 } __attribute__((packed));

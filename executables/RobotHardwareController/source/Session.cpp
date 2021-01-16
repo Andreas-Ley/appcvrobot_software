@@ -121,14 +121,14 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
             
 			case robot::hardwareSocket::RequestCodes::CURRENT_DRAW:
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
-                m_response.body.current.Current = hardwareInterface::battery::getBatteryCurrentAmps();
+                m_response.body.current.current = hardwareInterface::battery::getBatteryCurrentAmps();
                 startSendResponse(sizeof(m_response.body.current));
             break;
 			
 			
 			case robot::hardwareSocket::RequestCodes::CONTOLLER_USAGE:
                 m_response.head = robot::hardwareSocket::ResponseCodes::OK;
-                m_response.body.cpu.Cpu = hardwareInterface::motors::getControllerCPUUsage();
+                m_response.body.cpu.cpu = hardwareInterface::motors::getControllerCPUUsage();
   
                 startSendResponse(sizeof(m_response.body.cpu));
             break;
