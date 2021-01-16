@@ -64,6 +64,12 @@ void Session::onRequestHeadRecvd(const boost::system::error_code& error)
             case robot::hardwareSocket::RequestCodes::DRIVE_RELEASE:
                 onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
             break;
+            case robot::hardwareSocket::RequestCodes::DRIVE_ENABLE:
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
+            break;
+            case robot::hardwareSocket::RequestCodes::DRIVE_DISABLE:
+                onRequestBodyRecvd(boost::system::error_code()); // skip body recieving and directly go to evaluation
+            break;
             case robot::hardwareSocket::RequestCodes::DRIVE_SET_SPEED:
                 startRecvRequestBody(sizeof(m_request.body.driveSetSpeed));
             break;
@@ -159,15 +165,43 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
                     
                 }
             break;
+            case robot::hardwareSocket::RequestCodes::DRIVE_ENABLE :
+                if (m_manager.isLockedBy(Manager::MOTOR, this)){
+                    m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                    hardwareInterface::motors::enable(true);
+                    startSendResponse(0);
+                }else{
+                    logger.log(2) << "Session tried to enable motors, but lock is not being held by this session." << std::endl;
+                    m_response.head = robot::hardwareSocket::ResponseCodes::DRIVE_WAS_NOT_ACQUIRED;
+                    startSendResponse(0);
+                }
+            break;
+			case robot::hardwareSocket::RequestCodes::DRIVE_DISABLE:
+                if (m_manager.isLockedBy(Manager::MOTOR, this)){
+                    m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                    hardwareInterface::motors::enable(false);
+                    startSendResponse(0);
+                }else{
+                    logger.log(2) << "Session tried to disable motors, but lock is not being held by this session." << std::endl;
+                    m_response.head = robot::hardwareSocket::ResponseCodes::DRIVE_WAS_NOT_ACQUIRED;
+                    startSendResponse(0);
+                }
+            break;
 
 			case robot::hardwareSocket::RequestCodes::DRIVE_GET_STEPS:
-                m_response.head = robot::hardwareSocket::ResponseCodes::OK;
-				std::int16_t left;
-				std::int16_t right;
-				hardwareInterface::motors::getSteps(left, right);
-                m_response.body.driveGetSteps.stepsLeft = left;
-                m_response.body.driveGetSteps.stepsRight = right;
-                startSendResponse(sizeof(m_response.body.driveGetSteps));
+                if (m_manager.isLockedBy(Manager::MOTOR, this)){
+                    m_response.head = robot::hardwareSocket::ResponseCodes::OK;
+                    std::int16_t left;
+                    std::int16_t right;
+                    hardwareInterface::motors::getSteps(left, right);
+                    m_response.body.driveGetSteps.stepsLeft = left;
+                    m_response.body.driveGetSteps.stepsRight = right;
+                    startSendResponse(sizeof(m_response.body.driveGetSteps));
+                }else{
+                    logger.log(2) << "Session tried to get motor steps, but lock is not being held by this session." << std::endl;
+                    m_response.head = robot::hardwareSocket::ResponseCodes::DRIVE_WAS_NOT_ACQUIRED;
+                    startSendResponse(0);
+                }
             break;
 			
 			

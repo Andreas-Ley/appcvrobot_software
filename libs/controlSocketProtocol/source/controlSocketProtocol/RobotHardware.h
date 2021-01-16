@@ -21,10 +21,16 @@ class RobotHardware
         hardwareSocket::ResponseBodyCellVoltages getBatteryCellVoltages();
         float getCurrentDraw();
         float getControllerUsage();
+        
         void acquireDrive();
         void releaseDrive();
+
+        void powerDrive();
+        void unpowerDrive();
+
         void setDriveSpeed(float left, float right);
         std::tuple<int, int> getDriveSteps();
+
         void setLcdText(const std::string& s1, const std::string& s2);
         void acquireLcd();
         void releaseLcd();

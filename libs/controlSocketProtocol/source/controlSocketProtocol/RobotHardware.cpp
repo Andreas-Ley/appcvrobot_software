@@ -115,6 +115,52 @@ namespace robot
         }
     }
 
+    void RobotHardware::powerDrive()
+    {
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::DRIVE_ENABLE;
+        robot::hardwareSocket::ResponseCodes responseCode;
+
+        boost::asio::write(m_socket, boost::asio::buffer(&requestCode, sizeof(requestCode)));
+        boost::asio::read(m_socket, boost::asio::buffer(&responseCode, sizeof(responseCode)));
+
+        switch (responseCode)
+        {
+        case robot::hardwareSocket::ResponseCodes::DRIVE_WAS_NOT_ACQUIRED:
+            throw std::runtime_error("Powering drive failed: drive was already acquired by different process.");
+
+        case robot::hardwareSocket::ResponseCodes::OK:
+            return;
+
+        default:
+            throw std::runtime_error("Powering drive failed.");
+        }
+    }
+
+    void RobotHardware::unpowerDrive()
+    {
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::DRIVE_DISABLE;
+        robot::hardwareSocket::ResponseCodes responseCode;
+
+        boost::asio::write(m_socket, boost::asio::buffer(&requestCode, sizeof(requestCode)));
+        boost::asio::read(m_socket, boost::asio::buffer(&responseCode, sizeof(responseCode)));
+
+        switch (responseCode)
+        {
+        case robot::hardwareSocket::ResponseCodes::DRIVE_WAS_NOT_ACQUIRED:
+            throw std::runtime_error("Unpowering drive failed: drive was already acquired by different process.");
+
+        case robot::hardwareSocket::ResponseCodes::OK:
+            return;
+
+        default:
+            throw std::runtime_error("Unpowering drive failed.");
+        }
+    }
+
     void RobotHardware::setDriveSpeed(float left, float right)
     {
         std::lock_guard<std::mutex> lock(m_mutex);

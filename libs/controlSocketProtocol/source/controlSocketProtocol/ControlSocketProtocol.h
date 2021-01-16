@@ -37,6 +37,8 @@ enum class RequestCodes : std::uint8_t
     DRIVE_RELEASE           = 0x11, /// Release sole control over the drive
     DRIVE_SET_SPEED         = 0x12, /// Set speeds of drive
     DRIVE_GET_STEPS         = 0x13, /// Get drive steps taken and reset step counters
+    DRIVE_ENABLE            = 0x14, /// Enable motors
+    DRIVE_DISABLE           = 0x15, /// Disable motors
     // LCD stuff
     LCD_SET_TEXT            = 0x20, /// Set two lines of text on LCD and turns backlight on. Can be done without previous acquistion of lock.
     LCD_ACQUIRE             = 0x21, /// Acquire sole control over the LCD for fine-grained control
