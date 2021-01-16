@@ -18,11 +18,6 @@
 
 #include "Robot.h"
 
-#include "HardwareInterface.h"
-
-#ifndef BUILD_WITH_ROBOT_STUBS
-#include <pigpio.h>
-#endif
 
 #include <chrono>
 #include <stdexcept>
@@ -32,10 +27,8 @@
 Robot Robot::robot;
 
 
-Robot::Robot()
+Robot::Robot() : m_robotHardware(m_ioService)
 {
-    hardwareInterface::init();
-    
     m_terminate.store(false);
     m_thread = std::thread(std::bind(&Robot::threadBody, this));
     m_threadSlow = std::thread(std::bind(&Robot::threadBodySlow, this));
@@ -49,10 +42,15 @@ Robot::~Robot()
     
     for (auto &s : m_subsystems)
         s->fullStop();
-
-    m_subsystems.clear();
     
-    hardwareInterface::shutdown();
+    m_ioThread.join();
+}
+
+void Robot::startIoService()
+{
+    m_ioThread = std::thread([&]{
+        m_ioService.run();
+    });
 }
 
 void Robot::addSubsystem(std::unique_ptr<Subsystem> subsystem)

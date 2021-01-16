@@ -21,6 +21,8 @@
 
 #include "Subsystem.h"
 
+#include <controlSocketProtocol/RobotHardware.h>
+
 #include <atomic>
 #include <chrono>
 
@@ -31,7 +33,7 @@ class DrivePolicy : public Subsystem
 {
     public:
         DrivePolicy();
-        virtual ~DrivePolicy() = default;
+        virtual ~DrivePolicy();
         
         virtual void fullStop() override;
         virtual void setDesiredWheelSpeed(float left, float right) = 0;

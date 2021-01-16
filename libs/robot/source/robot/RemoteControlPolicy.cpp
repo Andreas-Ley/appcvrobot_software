@@ -18,7 +18,6 @@
 
 #include "RemoteControlPolicy.h"
 #include "Robot.h"
-#include "HardwareInterface.h"
 
 #include <chrono>
 #include <iostream>
@@ -34,20 +33,10 @@ void RemoteControlPolicy::operate(float dt) {
     
     auto age = std::chrono::steady_clock::now() - lastCmd.whenRecieved;
     if (age > std::chrono::milliseconds(1000)) {
+		std::cout << "No remote control signal, stopping" << std::endl;
         Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(0.0f, 0.0f);
-
-        if (age > std::chrono::milliseconds(2000) && !m_motorDisabled) {
-    		std::cout << "No remote control signal, disabling motor drivers" << std::endl;
-            m_motorDisabled = true;
-            hardwareInterface::motors::enable(false);
-        }
-    } else {
-        if (m_motorDisabled) {
-            m_motorDisabled = false;
-            hardwareInterface::motors::enable(true);
-        }
+    } else
         Robot::robot.getDrivePolicy()->setDesiredWheelSpeed(lastCmd.left, lastCmd.right);
-    }
     
 }
     

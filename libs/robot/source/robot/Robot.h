@@ -22,6 +22,8 @@
 #include "Subsystem.h"
 #include "DrivePolicy.h"
 
+#include <controlSocketProtocol/RobotHardware.h>
+
 #include <memory>
 #include <list>
 #include <atomic>
@@ -41,6 +43,11 @@ class Robot
         
         
         inline DrivePolicy* getDrivePolicy() { return m_drivePolicy; }
+
+        void startIoService();
+
+        boost::asio::io_service &getIoService() { return m_ioService; }
+        robot::RobotHardware &getRobotHardware() { return m_robotHardware; }
     protected:
         std::chrono::duration<long int, std::micro> m_threadTimeStep = std::chrono::duration<long int, std::micro>(10'000);
         std::chrono::duration<long int, std::micro> m_threadTimeStepSlow = std::chrono::duration<long int, std::micro>(100'000);
@@ -49,8 +56,13 @@ class Robot
         std::list<std::unique_ptr<Subsystem>> m_subsystems;
         
         std::atomic_bool m_terminate;
+        std::thread m_ioThread;
         std::thread m_thread;
         std::thread m_threadSlow;
+
+        boost::asio::io_service m_ioService;
+        robot::RobotHardware m_robotHardware;
+
         
         void threadBody();
         void threadBodySlow();

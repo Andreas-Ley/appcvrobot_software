@@ -21,6 +21,8 @@
 
 #include "Subsystem.h"
 
+#include <controlSocketProtocol/RobotHardware.h>
+
 #include <cstdint>
 #include <thread>
 #include <mutex>

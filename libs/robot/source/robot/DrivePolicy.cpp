@@ -18,7 +18,7 @@
 
 #include "DrivePolicy.h"
 
-#include "HardwareInterface.h"
+#include "Robot.h"
 
 #include <algorithm>
 #include <cmath>
@@ -29,8 +29,13 @@
 
 DrivePolicy::DrivePolicy()
 {
+    Robot::robot.getRobotHardware().acquireDrive();
 }
 
+DrivePolicy::~DrivePolicy()
+{
+    Robot::robot.getRobotHardware().releaseDrive();
+}
 
 void DrivePolicy::operate(float dt)
 {
@@ -45,5 +50,5 @@ void DrivePolicy::fullStop()
 
 void DrivePolicy::outputDrive(float left, float right)
 {
-    hardwareInterface::motors::setSpeed(left, right);
+    Robot::robot.getRobotHardware().setDriveSpeed(left, right);
 }

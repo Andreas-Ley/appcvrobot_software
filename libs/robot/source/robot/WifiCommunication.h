@@ -124,7 +124,7 @@ class WifiCommunication : public Subsystem
         std::atomic<bool> m_shutdown = std::atomic<bool>(false);
         std::mutex m_sockMutex;
         std::thread m_thread;
-        boost::asio::io_service m_ioService;
+        
         
         boost::asio::ip::udp::socket m_udpSocket;
         boost::asio::ip::udp::endpoint m_lastRecievedEndpoint;

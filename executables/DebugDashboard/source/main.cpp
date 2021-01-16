@@ -24,6 +24,8 @@ int main()
 #ifdef BUILD_WITH_ORB_SLAM
     Robot::robot.addSubsystem(std::unique_ptr<Subsystem>(new robot::SLAMSystem(*cam, wifiCom, 100'000))); // 100KB/s
 #endif
+
+    Robot::robot.startIoService();
     
     bool shutdown = false;
     while (!shutdown) {

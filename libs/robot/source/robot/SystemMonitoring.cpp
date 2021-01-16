@@ -20,7 +20,7 @@
 
 #include "WifiCommunication.h"
 
-#include "HardwareInterface.h"
+#include "Robot.h"
 
 #include <boost/format.hpp>
 
@@ -60,8 +60,10 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
             
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             
-            float cellVoltage1 = hardwareInterface::battery::getCellVoltage(hardwareInterface::battery::CELL_1);
-            float batteryCurrentDraw = hardwareInterface::battery::getBatteryCurrentAmps();
+            auto voltages = Robot::robot.getRobotHardware().getBatteryCellVoltages();
+
+            float cellVoltage1 = voltages.voltages[0];
+            float batteryCurrentDraw = Robot::robot.getRobotHardware().getCurrentDraw();
             
             std::cout << "Cell voltage: " << cellVoltage1 << " V" << std::endl;
             std::cout << "Draw: " << batteryCurrentDraw << " A" << std::endl;
@@ -110,8 +112,8 @@ SystemMonitoring::SystemMonitoring(WifiCommunication *wifiCommunication) : m_wif
                 m_state.memTotal_KB = sinfo.totalram / 1024;
                 m_state.memAvailable_KB = (sinfo.freeram + sinfo.bufferram) / 1024;
                 
-                m_state.cellVoltage_div20[0] = std::min<int>(std::max<int>(cellVoltage1 * 20.0f, 0), 255);
-                m_state.batteryDrawAmps_div100 = std::min<int>(std::max<int>(batteryCurrentDraw * 100.0f, 0), 255);
+                m_state.cellVoltage_div20[0] = std::min<int>(std::max<int>(cellVoltage1 / 20.0f, 0), 255);
+                m_state.batteryDrawAmps_div100 = std::min<int>(std::max<int>(batteryCurrentDraw / 100.0f, 0), 255);
             }
             
             if (m_wifiCommunication != nullptr) {

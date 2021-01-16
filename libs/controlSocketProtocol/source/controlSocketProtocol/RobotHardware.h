@@ -1,9 +1,12 @@
 #ifndef ROBOTHARDWARE_H
 #define ROBOTHARDWARE_H
 
+#include "ControlSocketProtocol.h"
+
 #include <boost/asio.hpp>
 
-#include "ControlSocketProtocol.h"
+#include <mutex>
+
 
 namespace robot {   
     
@@ -28,9 +31,9 @@ class RobotHardware
         hardwareSocket::ResponseBodyButtons getButtonsPushed();       
         
     protected:
-    using boostSockProt = boost::asio::local::stream_protocol;
-    boostSockProt::socket m_socket;
-
+        using boostSockProt = boost::asio::local::stream_protocol;
+        boostSockProt::socket m_socket;
+        std::mutex m_mutex;
 };
 
 }

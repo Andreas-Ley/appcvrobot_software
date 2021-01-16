@@ -10,6 +10,7 @@ namespace robot
 
     hardwareSocket::ResponseBodyCellVoltages RobotHardware::getBatteryCellVoltages()
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::BATTERY_CELL_VOLTAGES;
         struct
         {
@@ -30,6 +31,7 @@ namespace robot
 
     float RobotHardware::getCurrentDraw()
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::CURRENT_DRAW;
         struct
         {
@@ -50,6 +52,7 @@ namespace robot
 
     float RobotHardware::getControllerUsage()
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::CONTOLLER_USAGE;
         struct
         {
@@ -70,6 +73,7 @@ namespace robot
 
     void RobotHardware::acquireDrive()
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::DRIVE_ACQUIRE;
         robot::hardwareSocket::ResponseCodes responseCode;
 
@@ -91,6 +95,7 @@ namespace robot
 
     void RobotHardware::releaseDrive()
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::DRIVE_RELEASE;
         robot::hardwareSocket::ResponseCodes responseCode;
 
@@ -112,6 +117,7 @@ namespace robot
 
     void RobotHardware::setDriveSpeed(float left, float right)
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         struct
         {
             robot::hardwareSocket::RequestCodes requestCode;
@@ -144,6 +150,7 @@ namespace robot
 
     std::tuple<int, int> RobotHardware::getDriveSteps()
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::DRIVE_GET_STEPS;
         struct
         {
@@ -164,6 +171,7 @@ namespace robot
 
     void RobotHardware::setLcdText(const std::string &s1, const std::string &s2)
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         struct
         {
             robot::hardwareSocket::RequestCodes requestCode;
@@ -192,6 +200,7 @@ namespace robot
 
     hardwareSocket::ResponseBodyButtons RobotHardware::getButtonsPushed()
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         robot::hardwareSocket::RequestCodes requestCode = robot::hardwareSocket::RequestCodes::BUTTONS_PUSHED;
         struct
         {

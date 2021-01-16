@@ -79,6 +79,7 @@ target_link_libraries(robot PUBLIC
     ${EIGEN3_LIBRARIES}
     ${Boost_LIBRARIES}
     pthread
+    controlSocketProtocol
 )
 
 if(BUILD_WITH_ORB_SLAM)

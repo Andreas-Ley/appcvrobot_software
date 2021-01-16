@@ -18,6 +18,8 @@
 
 #include "WifiCommunication.h"
 
+#include "Robot.h"
+
 #include <boost/bind.hpp>
 
 #include <iostream>
@@ -29,13 +31,9 @@ using boost::asio::ip::udp;
 
     
 WifiCommunication::WifiCommunication(unsigned udpPort) :
-        m_udpSocket(m_ioService, udp::endpoint(udp::v4(), udpPort))
+        m_udpSocket(Robot::robot.getIoService(), udp::endpoint(udp::v4(), udpPort))
 {
     startReceivingPacket();
-    
-    m_thread = std::thread([&]{
-        m_ioService.run();
-    });
 }
 
 WifiCommunication::~WifiCommunication()
@@ -45,7 +43,6 @@ WifiCommunication::~WifiCommunication()
         m_udpSocket.cancel();
         m_udpSocket.close();
     }
-    m_thread.join();
 }
 
 void WifiCommunication::send(Packet packet, bool highPrio)
