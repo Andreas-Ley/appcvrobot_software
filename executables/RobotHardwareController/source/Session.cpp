@@ -41,11 +41,21 @@ void Session::startRecvRequestHead()
         boost::bind(&Session::onRequestHeadRecvd, this, boost::asio::placeholders::error));
 }
 
+void Session::dropSession()
+{
+    for (auto i = 0; i < Manager::LOCK_COUNT; i++)
+        if (m_manager.isLockedBy((Manager::Lock) i, this))
+            m_manager.releaseLock((Manager::Lock) i);
+
+    m_controlSocket.dropSession(this);
+}
+
+
 void Session::onRequestHeadRecvd(const boost::system::error_code& error)
 {
     if (error) {
         logger.log(0) << "Request Head error" << std::endl;
-        m_controlSocket.dropSession(this);
+        dropSession();
     } else {
         switch (m_request.head) {
                                 //BATERY
@@ -111,7 +121,7 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
 {
     if (error) {
         logger.log(0) << "Request Body error" << std::endl;
-        m_controlSocket.dropSession(this);
+        dropSession();
     } else {
         switch (m_request.head) {
 									//BATERY
@@ -251,7 +261,7 @@ void Session::onRequestBodyRecvd(const boost::system::error_code& error)
             default:
 			  
 				logger.log(0) << "Unhandeled request" << std::endl;	
-				throw std::runtime_error("Unhandled request!");
+                dropSession();
         }
     }
 }
@@ -267,7 +277,7 @@ void Session::onResponseSent(const boost::system::error_code& error)
 {
     if (error) {
         logger.log(0) << "Response sending failed" << std::endl;	
-        m_controlSocket.dropSession(this);
+        dropSession();
     } else {
         startRecvRequestHead();
     }
@@ -282,6 +292,6 @@ void Session::startSendFailureCode()
 
 void Session::onResponseFailureCodeSent(const boost::system::error_code& error)
 {
-    m_controlSocket.dropSession(this);    
+    dropSession();
 }
 

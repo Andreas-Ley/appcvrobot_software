@@ -54,6 +54,8 @@ class Session
         
         void startSendFailureCode();
         void onResponseFailureCodeSent(const boost::system::error_code& error);
+
+        void dropSession();
 };
 
 
