@@ -35,7 +35,7 @@ void Manager::releaseLock(Lock lock){
 bool Manager::isLockedBy(Lock lock, Session *session){
     return m_lock[lock] == session;
 }
-        
+
 void Manager::checkButtons()
 {
     unsigned buttons = hardwareInterface::getButtons();
@@ -45,7 +45,7 @@ void Manager::checkButtons()
         hardwareInterface::lcd::writeLine("Power button pressed", 0);
         hardwareInterface::lcd::writeLine("Shutting down", 1);
         
-        system("shutdown now");
+        system("shutdown -P now");
     }
     
     m_buttonTimer.expires_at(m_buttonTimer.expires_at() + boost::posix_time::millisec((unsigned)CHECK_BUTTON_INTERVAL));

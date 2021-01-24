@@ -4,11 +4,18 @@
 
 int main(int argc, char **argv)
 {
-    hardwareInterface::init();
+    if (argc != 2) {
+        std::cout << "Requires argument" << std::endl;
+        return 1;
+    }
 
-    hardwareInterface::battery::killPower();
+    if (std::string(argv[1]) == "poweroff") {
+        hardwareInterface::init();
 
-    hardwareInterface::shutdown();
+        hardwareInterface::battery::killPower();
+
+        hardwareInterface::shutdown();
+    }
 
     return 0;
 }
