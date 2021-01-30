@@ -214,15 +214,19 @@ void setSpeed(float left, float right)
         
         const unsigned minDelay = 10; // 5kHz / 25 / 200 steps/rot = 1 rot/second
 
-        const unsigned multiStep = MICROSTEP_FULL;
-        
-        const unsigned maxDelay = 1000;
+        const unsigned maxDelay = 200;
         const float minSpeed = minDelay / (float) maxDelay;
+
+        unsigned multiStep = MICROSTEP_FULL;
+        const float absSpeed = std::abs(speed);
         
-        if (std::abs(speed) < minSpeed)
-            return 0;
+        while (absSpeed < minSpeed) {
+            absSpeed *= 2;
+            multiStep++;
+            if (multiStep > MICROSTEP_SIXTEENTH) return 0;
+        }
         
-        int delay = (int) minDelay / std::abs(speed);
+        int delay = (int) minDelay / absSpeed;
 
         uint16_t result = delay;
         if (speed < 0.0f)
