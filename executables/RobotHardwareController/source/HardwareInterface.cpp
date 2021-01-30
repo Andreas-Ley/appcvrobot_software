@@ -214,7 +214,7 @@ void setSpeed(float left, float right)
         
         const unsigned minDelay = 10; // 5kHz / 25 / 200 steps/rot = 1 rot/second
 
-        const multiStep = MICROSTEP_FULL;
+        const unsigned multiStep = MICROSTEP_FULL;
         
         const unsigned maxDelay = 1000;
         const float minSpeed = minDelay / (float) maxDelay;
