@@ -60,11 +60,18 @@ Compile and upload the project in the firmware folder.
 Disconnect programmer and plug microcontroller back into the socket.
 
 
+## ffmpeg Video recording
+
+ffmpeg -f v4l2 -input_format h264 -framerate 15 -i /dev/video0 -c:v copy outputFile.mp4
+
 ## ffmpeg Video streaming
 
     ffmpeg -f v4l2 -input_format h264 -framerate 15 -i /dev/video0 -c:v copy -fflags nobuffer -f mpegts udp://192.168.93.167:1337
 
     ffplay -fflags nobuffer -flags low_delay -framedrop -strict experimental -probesize 32 -analyzeduration 0 -sync ext udp://@:1337
+
+Center crop for tweaking focus:
+    ffplay -fflags nobuffer -flags low_delay -framedrop -strict experimental -probesize 32 -analyzeduration 0 -sync ext -vf "crop=640:480:640:480"  udp://@:1337
 
 
 ## Misc
