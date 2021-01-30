@@ -133,8 +133,8 @@ Serial.print(lastAccessedRegister);
 		} break;
 		case REGISTER_SET_TARGET_SPEED: {
       if (bytes != 5) break;
-      int16_t speedL = Wire.read() | (Wire.read() << 8);
-      int16_t speedR = Wire.read() | (Wire.read() << 8);
+      uint16_t speedL = Wire.read() | (Wire.read() << 8);
+      uint16_t speedR = Wire.read() | (Wire.read() << 8);
 /*
 Serial.print("REGISTER_SET_TARGET_SPEED ");
 Serial.print(speedL);

@@ -18,5 +18,13 @@
 #define BUTTON_EXECUTE        (0x02)
 #define BUTTON_STOP           (0x04)
 
+#define STEP_DELAY_MASK         (0b11111111111)
+#define STEP_DELAY_SIGN_BIT     (12)
+#define MICROSTEP_BIT_SHIFT     (13)
+#define MICROSTEP_FULL          (0)
+#define MICROSTEP_HALF          (1)
+#define MICROSTEP_QUARTER       (2)
+#define MICROSTEP_EIGTH         (3)
+#define MICROSTEP_SIXTEENTH     (4)
 
 #endif

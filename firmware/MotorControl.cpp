@@ -1,4 +1,5 @@
 #include "MotorControl.h"
+#include "protocol.h"
 
 #include <Arduino.h>
 
@@ -96,17 +97,41 @@ void setEnabled(bool enabled)
     digitalWrite(PIN_ENABLE, enabled?LOW:HIGH);
 }
 
-void setSpeed(int16_t left, int16_t right)
+void setSpeed(uint16_t left, uint16_t right)
 {
     TIMSK1 &= ~(1 << OCIE1A);
-    stepDelays[0] = abs(left);
-    stepDelays[1] = abs(right);
+    stepDelays[0] = left & STEP_DELAY_MASK;
+    stepDelays[1] = right & STEP_DELAY_MASK;
     TIMSK1 |= (1 << OCIE1A);
 
-    direction[0] = (left > 0)?1:-1;
-    direction[1] = (right > 0)?1:-1;
-    digitalWrite(PIN_DIR_L, (left > 0)?HIGH:LOW);
-    digitalWrite(PIN_DIR_R, (right > 0)?HIGH:LOW);
+    direction[0] = (left & STEP_DELAY_SIGN_BIT)?-1:1;
+    direction[1] = (right & STEP_DELAY_SIGN_BIT)?-1:1;
+    digitalWrite(PIN_DIR_L, (left & STEP_DELAY_SIGN_BIT)?LOW:HIGH);
+    digitalWrite(PIN_DIR_R, (right & STEP_DELAY_SIGN_BIT)?LOW:HIGH);
+    
+	uint8_t leftMSMode = left >> MICROSTEP_BIT_SHIFT;
+	uint8_t rightMSMode = right >> MICROSTEP_BIT_SHIFT;
+	
+	if (leftMSMode < 4) {
+		digitalWrite(PIN_MS1_L, (leftMSMode&1)?HIGH:LOW);
+		digitalWrite(PIN_MS2_L, (leftMSMode&2)?HIGH:LOW);
+		digitalWrite(PIN_MS3_L, LOW);
+	} else {
+		digitalWrite(PIN_MS1_L, HIGH);
+		digitalWrite(PIN_MS2_L, HIGH);
+		digitalWrite(PIN_MS3_L, HIGH);
+	}
+
+
+	if (rightMSMode < 4) {
+		digitalWrite(PIN_MS1_R, (rightMSMode&1)?HIGH:LOW);
+		digitalWrite(PIN_MS2_R, (rightMSMode&2)?HIGH:LOW);
+		digitalWrite(PIN_MS3_R, LOW);
+	} else {
+		digitalWrite(PIN_MS1_R, HIGH);
+		digitalWrite(PIN_MS2_R, HIGH);
+		digitalWrite(PIN_MS3_R, HIGH);
+	}    
 }
 
 void fetchStepsTaken(uint16_t &left, uint16_t &right)

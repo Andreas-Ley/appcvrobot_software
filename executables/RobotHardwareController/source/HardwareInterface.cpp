@@ -209,10 +209,12 @@ void enable(bool enable)
 
 void setSpeed(float left, float right)
 {
-    auto speed2delay = [](float speed)->std::int16_t{
+    auto speed2delay = [](float speed)->std::uint16_t{
         speed = std::min(std::max(speed, -1.0f), 1.0f);
         
         const unsigned minDelay = 10; // 5kHz / 25 / 200 steps/rot = 1 rot/second
+
+        const multiStep = MICROSTEP_FULL;
         
         const unsigned maxDelay = 1000;
         const float minSpeed = minDelay / (float) maxDelay;
@@ -221,13 +223,17 @@ void setSpeed(float left, float right)
             return 0;
         
         int delay = (int) minDelay / std::abs(speed);
-        if (speed > 0.0f)
-            return delay;
-        else
-            return -delay;
+
+        uint16_t result = delay;
+        if (speed < 0.0f)
+            result |= (1 << STEP_DELAY_SIGN_BIT);
+
+        result |= multiStep << MICROSTEP_BIT_SHIFT;
+
+        return result;
     };
     
-    std::int16_t delays[2] = {
+    std::uint16_t delays[2] = {
         speed2delay(left),
         speed2delay(right)
     };
