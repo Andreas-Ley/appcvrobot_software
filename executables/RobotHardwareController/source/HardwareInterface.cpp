@@ -218,7 +218,7 @@ void setSpeed(float left, float right)
         const float minSpeed = minDelay / (float) maxDelay;
 
         unsigned multiStep = MICROSTEP_FULL;
-        const float absSpeed = std::abs(speed);
+        float absSpeed = std::abs(speed);
         
         while (absSpeed < minSpeed) {
             absSpeed *= 2;
