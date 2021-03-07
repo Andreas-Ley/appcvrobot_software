@@ -41,6 +41,7 @@ add_subdirectory(executables/RobotHardwareController/)
 add_subdirectory(executables/LCDTest/)
 add_subdirectory(executables/DumpStatus/)
 add_subdirectory(executables/Shutdown/)
+add_subdirectory(executables/KazeTest/)
 
 ##### Robot Logic #####
 add_subdirectory(executables/DebugDashboard/)
