@@ -308,7 +308,7 @@ struct Vuint8x16 {
     }
     Vuint8x16 operator>(const Vuint8x16 &rhs) const {
         Vuint8x16 res;
-        res.values = vcgt_u8(values, rhs.values);
+        res.values = vcgtq_u8(values, rhs.values);
         return res;
     }
 
@@ -347,6 +347,13 @@ struct Vuint16x8 {
 };
 
 
+Vuint8x16 saturatingAdd(const Vuint8x16 &lhs, const Vuint8x16 &rhs) {
+    Vuint8x16 res;
+    res.values = vqaddq_u8(lhs.values, rhs.values);
+    return res;
+}
+
+
 Vuint8x16 saturatingAdd(const Vuint8x16 &lhs, int rhs) {
     Vuint8x16 res;
     res.values = vqaddq_u8(lhs.values, vdupq_n_u8(rhs));
@@ -376,10 +383,20 @@ Vuint8x16 unzipLower(const Vuint16x8 &a, const Vuint16x8 &b) {
 }
 
 
+inline uint32_t is_not_zero(uint32x4_t v)
+{
+    uint32x2_t tmp = vorr_u32(vget_low_u32(v), vget_high_u32(v));
+    return vget_lane_u32(vpmax_u32(tmp, tmp), 0);
+}
 
-template<typename type, unsigned dim>
-Vuint<type, dim> absDiff(const Vuint<type, dim> &lhs, const Vuint<type, dim> &rhs) {
-    Vuint<type, dim> res;
+bool any(const Vuint8x16 &v) {
+    return is_not_zero((uint32x4_t)v.values);
+}
+
+
+
+Vuint8x16 absDiff(const Vuint8x16 &lhs, const Vuint8x16 &rhs) {
+    Vuint8x16 res;
     res.values = vabdq_u8(lhs.values, rhs.values);
     return res;
 }
