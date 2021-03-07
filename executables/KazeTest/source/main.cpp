@@ -251,33 +251,33 @@ struct Vuint8x16 {
     Vuint8x16(bool v) { operator=(v); }
 
     void load(const void *src) {
-        values = vld1q_s8((const std::uint8_t*)src);
+        values = vld1q_u8((const std::uint8_t*)src);
     }
     void store(void *dst) const {
-        vst1q_s8((std::uint8_t*)dst, values);
+        vst1q_u8((std::uint8_t*)dst, values);
     }
 
     void operator=(int v) {
-        values = vdupq_n_s8(v);
+        values = vdupq_n_u8(v);
     }
 
     void operator=(bool v) {
-        values = vdupq_n_s8(v?~0ull:0ull);
+        values = vdupq_n_u8(v?~0ull:0ull);
     }
 
     Vuint8x16 operator&(const Vuint8x16 &rhs) const {
         Vuint8x16 res;
-        res.values = vandq_s8(values, rhs.values);
+        res.values = vandq_u8(values, rhs.values);
         return res;
     }
 
     void operator&=(const Vuint8x16 &rhs) {
-        values = vandq_s8(values, rhs.values);
+        values = vandq_u8(values, rhs.values);
     }
 
     Vuint8x16 operator~() const {
         Vuint8x16 res;
-        res.values = vmvnq_s8(values);
+        res.values = vmvnq_u8(values);
         return res;
     }
 
@@ -293,32 +293,32 @@ struct Vuint8x16 {
     }
 
     void shiftLeftInsert(const Vuint8x16 &insert, unsigned shiftAmount) {
-        values = vsliq_n_s8(values, insert.values, shiftAmount);
+        values = vsliq_n_u8(values, insert.values, shiftAmount);
     }
 
     uint8x16_t values;
 };
 
 struct Vuint16x8 {
-    Vuint8x16() = default;
-    Vuint8x16(int v) { operator=(v); }
-    Vuint8x16(bool v) { operator=(v); }
+    Vuint16x8() = default;
+    Vuint16x8(int v) { operator=(v); }
+    Vuint16x8(bool v) { operator=(v); }
 
     void operator=(int v) {
-        values = vdupq_n_s16(v);
+        values = vdupq_n_u16(v);
     }
 
     void operator=(bool v) {
-        values = vdupq_n_s16(v?~0ull:0ull);
+        values = vdupq_n_u16(v?~0ull:0ull);
     }
 
-    void operator&=(const Vuint8x16 &rhs) {
-        values = vandq_s16(values, rhs.values);
+    void operator&=(const Vuint16x8 &rhs) {
+        values = vandq_u16(values, rhs.values);
     }
 
-    Vuint8x16 bitTest(const Vuint8x16 &rhs) const {
+    Vuint8x16 bitTest(const Vuint16x8 &rhs) const {
         Vuint8x16 res;
-        res.values = vtstq_s16(values, rhs.values);
+        res.values = vtstq_u16(values, rhs.values);
         return res;
     }
 
@@ -329,33 +329,33 @@ struct Vuint16x8 {
 
 Vuint8x16 saturatingAdd(const Vuint8x16 &lhs, int rhs) {
     Vuint8x16 res;
-    res.values = vqaddq_s8(lhs.values, vdupq_n_s8(rhs));
+    res.values = vqaddq_u8(lhs.values, vdupq_n_u8(rhs));
     return res;
 }
 
 Vuint8x16 saturatingSub(const Vuint8x16 &lhs, int rhs) {
     Vuint8x16 res;
-    res.values = vqsubq_s8(lhs.values, vdupq_n_s8(rhs));
+    res.values = vqsubq_u8(lhs.values, vdupq_n_u8(rhs));
     return res;
 }
 
 
 Vuint16x8 zipLower(const Vuint8x16 &a, const Vuint8x16 &b) {
     Vuint16x8 res;
-    res.values = vzip1q_s8(a.values, b.values);
+    res.values = (uint16x8_t)vzip1q_u8(a.values, b.values);
     return res;
 }
 
 Vuint16x8 zipUpper(const Vuint8x16 &a, const Vuint8x16 &b) {
     Vuint16x8 res;
-    res.values = vzip2q_s8(a.values, b.values);
+    res.values = (uint16x8_t)vzip2q_u8(a.values, b.values);
     return res;
 }
 
 
 Vuint8x16 unzipLower(const Vuint16x8 &a, const Vuint16x8 &b) {
     Vuint8x16 res;
-    res.values = vuzp1q_s8(a.values, b.values);
+    res.values = (uint8x16_t&)vuzp1q_u8(a.values, b.values);
     return res;
 }
 
