@@ -316,8 +316,8 @@ struct Vuint16x8 {
         values = vandq_u16(values, rhs.values);
     }
 
-    Vuint8x16 bitTest(const Vuint16x8 &rhs) const {
-        Vuint8x16 res;
+    Vuint16x8 bitTest(const Vuint16x8 &rhs) const {
+        Vuint16x8 res;
         res.values = vtstq_u16(values, rhs.values);
         return res;
     }
@@ -340,22 +340,18 @@ Vuint8x16 saturatingSub(const Vuint8x16 &lhs, int rhs) {
 }
 
 
-Vuint16x8 zipLower(const Vuint8x16 &a, const Vuint8x16 &b) {
-    Vuint16x8 res;
-    res.values = (uint16x8_t)vzip1q_u8(a.values, b.values);
-    return res;
-}
-
-Vuint16x8 zipUpper(const Vuint8x16 &a, const Vuint8x16 &b) {
-    Vuint16x8 res;
-    res.values = (uint16x8_t)vzip2q_u8(a.values, b.values);
-    return res;
+void zip(const Vuint8x16 &a, const Vuint8x16 &b, Vuint16x8 &lower, Vuint16x8 &upper) {
+    auto zipped = vzipq_u8(a.values, b.values);
+    
+    lower.values = (uint16x8_t&)zipped.val[0];
+    upper.values = (uint16x8_t&)zipped.val[1];
 }
 
 
 Vuint8x16 unzipLower(const Vuint16x8 &a, const Vuint16x8 &b) {
+    auto unzipped = vuzpq_u8((uint8x16_t&)a.values, (uint8x16_t&)b.values);
     Vuint8x16 res;
-    res.values = (uint8x16_t&)vuzp1q_u8(a.values, b.values);
+    res.values = unzipped.val[0];
     return res;
 }
 
@@ -447,11 +443,13 @@ void fast(const Image &img, Image &dst)
                 halfCircleNotSmaller_1.shiftLeftInsert(notSmaller, tap-8);
             }
 
-            Vuint16x8 lowerWarpCircleNotBigger = zipLower(halfCircleNotBigger_0, halfCircleNotBigger_1);
-            Vuint16x8 upperWarpCircleNotBigger = zipUpper(halfCircleNotBigger_0, halfCircleNotBigger_1);
+            Vuint16x8 lowerWarpCircleNotBigger;
+            Vuint16x8 upperWarpCircleNotBigger;
+            zip(halfCircleNotBigger_0, halfCircleNotBigger_1, lowerWarpCircleNotBigger, upperWarpCircleNotBigger);
 
-            Vuint16x8 lowerWarpCircleNotSmaller = zipLower(halfCircleNotSmaller_0, halfCircleNotSmaller_1);
-            Vuint16x8 upperWarpCircleNotSmaller = zipUpper(halfCircleNotSmaller_0, halfCircleNotSmaller_1);
+            Vuint16x8 lowerWarpCircleNotSmaller;
+            Vuint16x8 upperWarpCircleNotSmaller;
+            zip(halfCircleNotSmaller_0, halfCircleNotSmaller_1, lowerWarpCircleNotSmaller, upperWarpCircleNotSmaller);
 
             const std::uint16_t bitMasks[] = {
                 0b0000111111111111,
@@ -593,8 +591,9 @@ vuzp1q_s8
 
 int main() {
 
-    auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0126.png", cv::IMREAD_GRAYSCALE);
-    auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0128.png");
+#if 1
+    auto imgA = cv::imread("/home/pi/frame0126.png", cv::IMREAD_GRAYSCALE);
+//    auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0128.png");
 
     //cv::cvtColor(imgA, cv::COLOR_BGR2GRAY);
 
@@ -608,8 +607,12 @@ int main() {
     Image outputImg;
     outputImg.allocate(imgA.cols, imgA.rows);
 
-    fast(inputImg, outputImg);
+    CPUStopWatch timer;
+    for (unsigned i = 0; i < 50; i++)
+        fast(inputImg, outputImg);
+    std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
 
+/*
     for (unsigned y = 0; y < imgA.rows; y++)
         for (unsigned x = 0; x < imgA.cols; x++) {
             imgA.at<std::uint8_t>(y, x) = outputImg(x, y);
@@ -617,12 +620,16 @@ int main() {
 
     cv::imwrite("fast.png", imgA);
 
-    cv::imshow("image", imgA);
-    cv::waitKey(0);
+//    cv::imshow("image", imgA);
+//    cv::waitKey(0);
 
 
-    slow(inputImg, outputImg);
-
+*/
+    timer.start();
+    for (unsigned i = 0; i < 50; i++)
+        slow(inputImg, outputImg);
+    std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
+/*
     for (unsigned y = 0; y < imgA.rows; y++)
         for (unsigned x = 0; x < imgA.cols; x++) {
             imgA.at<std::uint8_t>(y, x) = outputImg(x, y);
@@ -630,11 +637,21 @@ int main() {
 
     cv::imwrite("slow.png", imgA);
 
-    cv::imshow("image", imgA);
-    cv::waitKey(0);
+//    cv::imshow("image", imgA);
+//    cv::waitKey(0);
+*/
+#elif 1
+    auto imgA = cv::imread("/home/pi/frame0126.png", cv::IMREAD_GRAYSCALE);
+    auto fast = cv::FastFeatureDetector::create();
 
-#if 0
 
+    std::vector<cv::KeyPoint> keypointsA;
+    CPUStopWatch timer;
+    for (unsigned i = 0; i < 50; i++)
+        fast->detect(imgA, keypointsA);
+    std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
+
+#elif 0
     cv::Mat descsA;
     std::vector<cv::KeyPoint> keypointsA;
     cv::Mat descsB;
