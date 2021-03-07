@@ -115,6 +115,11 @@ struct Vuint {
             values[i] &= rhs.values[i];
     }
 
+    void operator>>=(int v) {
+        for (unsigned i = 0; i < dim; i++)
+            values[i] >>= v;
+    }
+
     Vuint<type, dim> operator~() const {
         Vuint<type, dim> res;
         for (unsigned i = 0; i < dim; i++)
@@ -132,6 +137,12 @@ struct Vuint {
         Vuint<type, dim> res;
         for (unsigned i = 0; i < dim; i++)
             res.values[i] = (values[i] >= rhs.values[i])?~0ull:0ull;
+        return res;
+    }
+    Vuint<type, dim> operator>(const Vuint<type, dim> &rhs) const {
+        Vuint<type, dim> res;
+        for (unsigned i = 0; i < dim; i++)
+            res.values[i] = (values[i] > rhs.values[i])?~0ull:0ull;
         return res;
     }
 
@@ -188,30 +199,30 @@ Vuint<type, dim> saturatingSub(const Vuint<type, dim> &lhs, int rhs) {
 }
 
 
+template<typename type, unsigned dim>
+Vuint<type, dim> absDiff(const Vuint<type, dim> &lhs, const Vuint<type, dim> &rhs) {
+    Vuint<type, dim> res;
+    for (unsigned i = 0; i < dim; i++)
+        if (lhs.values[i] > rhs.values[i])
+            res.values[i] = lhs.values[i] - rhs.values[i];
+        else
+            res.values[i] = rhs.values[i] - lhs.values[i];
+    return res;
+}
+
 
 
 using Vuint8x16 = Vuint<std::uint8_t, 16>;
 using Vuint16x8 = Vuint<std::uint16_t, 8>;
 
 
-Vuint16x8 zipLower(const Vuint8x16 &a, const Vuint8x16 &b) {
-    Vuint16x8 res;
+Vuint16x8 zip(const Vuint8x16 &a, const Vuint8x16 &b, Vuint16x8 &lower, Vuint16x8 &upper) {
+    for (unsigned i = 0; i < 8; i++)
+        lower.values[i] = (((std::uint16_t) a.values[i]) << 8) | b.values[i];
 
     for (unsigned i = 0; i < 8; i++)
-        res.values[i] = (((std::uint16_t) a.values[i]) << 8) | b.values[i];
-
-    return res;
+        upper.values[i] = (((std::uint16_t) a.values[8+i]) << 8) | b.values[8+i];
 }
-
-Vuint16x8 zipUpper(const Vuint8x16 &a, const Vuint8x16 &b) {
-    Vuint16x8 res;
-
-    for (unsigned i = 0; i < 8; i++)
-        res.values[i] = (((std::uint16_t) a.values[8+i]) << 8) | b.values[8+i];
-
-    return res;
-}
-
 
 Vuint8x16 unzipLower(const Vuint16x8 &a, const Vuint16x8 &b) {
     Vuint8x16 res;
@@ -275,6 +286,10 @@ struct Vuint8x16 {
         values = vandq_u8(values, rhs.values);
     }
 
+    void operator>>=(int v) {
+        values = vshrq_n_u8(values, v);
+    }
+
     Vuint8x16 operator~() const {
         Vuint8x16 res;
         res.values = vmvnq_u8(values);
@@ -289,6 +304,11 @@ struct Vuint8x16 {
     Vuint8x16 operator>=(const Vuint8x16 &rhs) const {
         Vuint8x16 res;
         res.values = vcgeq_u8(values, rhs.values);
+        return res;
+    }
+    Vuint8x16 operator>(const Vuint8x16 &rhs) const {
+        Vuint8x16 res;
+        res.values = vcgt_u8(values, rhs.values);
         return res;
     }
 
@@ -342,7 +362,7 @@ Vuint8x16 saturatingSub(const Vuint8x16 &lhs, int rhs) {
 
 void zip(const Vuint8x16 &a, const Vuint8x16 &b, Vuint16x8 &lower, Vuint16x8 &upper) {
     auto zipped = vzipq_u8(a.values, b.values);
-    
+
     lower.values = (uint16x8_t&)zipped.val[0];
     upper.values = (uint16x8_t&)zipped.val[1];
 }
@@ -352,6 +372,15 @@ Vuint8x16 unzipLower(const Vuint16x8 &a, const Vuint16x8 &b) {
     auto unzipped = vuzpq_u8((uint8x16_t&)a.values, (uint8x16_t&)b.values);
     Vuint8x16 res;
     res.values = unzipped.val[0];
+    return res;
+}
+
+
+
+template<typename type, unsigned dim>
+Vuint<type, dim> absDiff(const Vuint<type, dim> &lhs, const Vuint<type, dim> &rhs) {
+    Vuint<type, dim> res;
+    res.values = vabdq_u8(lhs.values, rhs.values);
     return res;
 }
 
@@ -487,12 +516,46 @@ void fast(const Image &img, Image &dst)
 
             Vuint8x16 isKeypoint = ~(noneBigger & noneSmaller);
 
+            if (any(isKeypoint)) {
+
+                Vuint8x16 strength = 0;
+                for (unsigned tap = 0; tap < 16; tap++) {
+                    Vuint8x16 tapPixel;
+                    tapPixel.load(&img(x+taps[tap][0], y+taps[tap][1]));
+
+                    Vuint8x16 v = absDiff(centralPixel, tapPixel);
+                    v >>= 2;
+
+                    strength = saturatingAdd(strength, v);
+                }
+                isKeypoint = isKeypoint & strength;
+            }
+
             isKeypoint.store(&dst(x, y));
         }
 
 }
 
+void nonMaxSuppress(Image &img)
+{
+    for (unsigned y = 1; y+1 < img.height(); y++)
+        for (unsigned x = 1; x+1 < img.width(); x+=16) {
+            Vuint8x16 centralPixel;
+            centralPixel.load(&img(x, y));
 
+            for (int i = -1; i <= 1; i++)
+                for (int j = -1; j <= 1; j++)
+                    if ((i != 0) || (j != 0)) {
+                        Vuint8x16 neighbor;
+                        neighbor.load(&img((int)x+j, (int)y+i));
+
+                        Vuint8x16 larger = centralPixel > neighbor;
+                        centralPixel = centralPixel & larger;
+                    }
+
+            centralPixel.store(&img(x, y));
+        }
+}
 
 void slow(const Image &img, Image &dst)
 {
@@ -593,6 +656,7 @@ int main() {
 
 #if 1
     auto imgA = cv::imread("/home/pi/frame0126.png", cv::IMREAD_GRAYSCALE);
+//    auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0126.png", cv::IMREAD_GRAYSCALE);
 //    auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0128.png");
 
     //cv::cvtColor(imgA, cv::COLOR_BGR2GRAY);
@@ -608,11 +672,13 @@ int main() {
     outputImg.allocate(imgA.cols, imgA.rows);
 
     CPUStopWatch timer;
-    for (unsigned i = 0; i < 50; i++)
+    for (unsigned i = 0; i < 50; i++) {
         fast(inputImg, outputImg);
+        nonMaxSuppress(outputImg);
+    }
     std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
 
-/*
+
     for (unsigned y = 0; y < imgA.rows; y++)
         for (unsigned x = 0; x < imgA.cols; x++) {
             imgA.at<std::uint8_t>(y, x) = outputImg(x, y);
@@ -624,7 +690,7 @@ int main() {
 //    cv::waitKey(0);
 
 
-*/
+
     timer.start();
     for (unsigned i = 0; i < 50; i++)
         slow(inputImg, outputImg);
@@ -641,16 +707,21 @@ int main() {
 //    cv::waitKey(0);
 */
 #elif 1
-    auto imgA = cv::imread("/home/pi/frame0126.png", cv::IMREAD_GRAYSCALE);
-    auto fast = cv::FastFeatureDetector::create();
+    //auto imgA = cv::imread("/home/pi/frame0126.png", cv::IMREAD_GRAYSCALE);
+    auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0126.png", cv::IMREAD_GRAYSCALE);
+    auto fast = cv::FastFeatureDetector::create(21);
 
 
     std::vector<cv::KeyPoint> keypointsA;
     CPUStopWatch timer;
-    for (unsigned i = 0; i < 50; i++)
+    for (unsigned i = 0; i < 1; i++)
         fast->detect(imgA, keypointsA);
-    std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
+    std::cout << timer.getNanoseconds() * 1e-9f / 1 << " seconds/image" << std::endl;
 
+    cv::Mat outImageA;
+    cv::drawKeypoints(imgA, keypointsA, outImageA);
+
+    cv::imwrite("opencv_fast.png", outImageA);
 #elif 0
     cv::Mat descsA;
     std::vector<cv::KeyPoint> keypointsA;
