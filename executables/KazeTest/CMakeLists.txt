@@ -10,6 +10,16 @@ endif(BUILD_FOR_ARM)
 
 add_executable(KazeTest
 	source/main.cpp
+    source/SlowBrief.cpp
+    source/SlowBrief.h
+    source/Keypoint.cpp
+    source/Keypoint.h
+    source/Image.cpp
+    source/Image.h
+    source/FrameKPGrid.cpp
+    source/FrameKPGrid.h
+    source/Frame.cpp
+    source/Frame.h
 )
 
 target_include_directories(KazeTest PUBLIC

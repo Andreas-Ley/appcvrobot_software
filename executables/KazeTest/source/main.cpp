@@ -4,6 +4,10 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include "Image.h"
+#include "Frame.h"
+#include "Keypoint.h"
+#include "SlowBrief.h"
 
 #include <iostream>
 #include <time.h>
@@ -231,7 +235,7 @@ using Vuint8x16 = Vuint<std::uint8_t, 16>;
 using Vuint16x8 = Vuint<std::uint16_t, 8>;
 
 
-Vuint16x8 zip(const Vuint8x16 &a, const Vuint8x16 &b, Vuint16x8 &lower, Vuint16x8 &upper) {
+void zip(const Vuint8x16 &a, const Vuint8x16 &b, Vuint16x8 &lower, Vuint16x8 &upper) {
     for (unsigned i = 0; i < 8; i++)
         lower.values[i] = (((std::uint16_t) a.values[i]) << 8) | b.values[i];
 
@@ -425,33 +429,6 @@ Vuint8x16 absDiff(const Vuint8x16 &lhs, const Vuint8x16 &rhs) {
 #endif
 
 
-
-
-
-class Image {
-    public:
-        unsigned width() const { return m_width; }
-        unsigned height() const { return m_height; }
-
-        void allocate(unsigned w, unsigned h) {
-            m_width = w;
-            m_stride = (w+15) & ~15;
-            m_height = h;
-            m_data.resize(m_stride*m_height+15);
-            m_ptr = m_data.data();
-            m_ptr = (std::uint8_t *) (((size_t&)m_ptr + 15ull) & ~15ull);
-        }
-
-        std::uint8_t &operator()(unsigned x, unsigned y) { return m_ptr[x+y*m_stride]; }
-        const std::uint8_t &operator()(unsigned x, unsigned y) const { return m_ptr[x+y*m_stride]; }
-    protected:
-        std::vector<std::uint8_t> m_data;
-        std::uint8_t *m_ptr = nullptr;
-        unsigned m_width = 0;
-        unsigned m_stride = 0;
-        unsigned m_height = 0;
-};
-
 void fast(const Image &img, Image &dst)
 {
     const int taps[16][2] = {
@@ -573,16 +550,6 @@ void fast(const Image &img, Image &dst)
 
 }
 
-
-
-
-struct Keypoint {
-    std::uint16_t x;
-    std::uint16_t y;
-    std::uint8_t strength;
-};
-
-
 template<unsigned i>
 void emitCoords(unsigned x, unsigned y, const Vuint8x16 &centralPixel, std::vector<Keypoint> &coords)
 {
@@ -601,7 +568,7 @@ void emitCoords(unsigned x, unsigned y, const Vuint8x16 &centralPixel, std::vect
 template<bool writeBackImg>
 void nonMaxSuppress(Image &img, unsigned borderSize, std::vector<Keypoint> &coords)
 {
-    borderSize = std::max(borderSize, 1);
+    borderSize = std::max(borderSize, 1u);
 
     coords.clear();
     for (unsigned y = borderSize; y+borderSize < img.height(); y++)
@@ -633,39 +600,9 @@ void nonMaxSuppress(Image &img, unsigned borderSize, std::vector<Keypoint> &coor
         }
 }
 
-const unsigned descriptorPatternMaxSize = 2048;
-const int descriptorPatternExtend = 24;
-std::tuple<int, int, int, int> descriptorPattern[descriptorPatternMaxSize];
-
-template<unsigned dimension = 256>
-void slowBrief(const Image &img,
-                const std::vector<std::tuple<std::uint16_t, std::uint16_t, std::uint8_t>> &coords,
-                std::vector<std::uint8_t> &descriptors,
-                std::vector<bool> &valid)
+void nonMaxSuppressNWB(Image &img, unsigned borderSize, std::vector<Keypoint> &coords)
 {
-    unsigned descriptorWords = dimension / 8;
-    descriptors.resize(coords.size() * descriptorWords);
-    valid.resize(coords.size());
-    memset(descriptors.data(), 0, descriptors.size());
-
-    for (unsigned i = 0; i < coords.size(); i++) {
-        unsigned descOffset = i * descriptorWords;
-
-        auto [cx, cy, strength] = coords[i];
-        if (cx < descriptorPatternExtend || cx+descriptorPatternExtend >= img.width() ||
-            cy < descriptorPatternExtend || cy+descriptorPatternExtend >= img.height()) {
-            valid[i] = false;
-            continue;
-        }
-        valid[i] = true;
-
-        for (unsigned j = 0; j < dimension; j++) {
-            auto [sx, sy, dx, dy] = descriptorPattern[j];
-            bool bit = img(cx+sx, cy+sy) > img(cx+dx, cy+dy);
-            if (bit)
-                descriptors[descOffset+j/8] |= 1 << (j % 8);
-        }
-    }
+    nonMaxSuppress<false>(img, borderSize, coords);
 }
 
 
@@ -700,186 +637,6 @@ void slowMatch(const std::vector<std::uint8_t> &descriptorsA, const std::vector<
         matches[i] = {bestMatch, bestDistance};
     }
 }
-
-
-
-class FrameKPGrid {
-    public:
-        void resize(unsigned rows, unsigned cols);
-
-        const std::span<unsigned> &operator()(unsigned r, unsigned c) const {
-            const auto &cell = m_cells[r*m_cols+c];
-            return std::span<unsigned>(m_keypointIndices.begin()+cell.idxStart, m_keypointIndices.begin()+cell.idxStart+cell.idxCount);
-        }
-
-        void build(unsigned width, unsigned height, const std::vector<Keypoint> &keypoints);
-
-        inline unsigned getRows() const { return m_rows; }
-        inline unsigned getCols() const { return m_cols; }
-    protected:
-        unsigned m_rows = 0;
-        unsigned m_cols = 0;
-
-        struct Cell {
-            unsigned idxStart = 0;
-            unsigned idxCount = 0;
-        };
-
-        std::vector<Cell> m_cells;
-        std::vector<unsigned> m_keypointIndices;
-};
-
-void FrameKPGrid::resize(unsigned rows, unsigned cols)
-{
-    m_rows = rows;
-    m_cols = cols;
-    m_cells.clear();
-    m_cells.resize(m_rows * m_cols);
-}
-
-void FrameKPGrid::build(unsigned width, unsigned height, const std::vector<Keypoint> &keypoints)
-{
-    m_cells.clear();
-    m_cells.resize(m_rows * m_cols);
-    m_keypointIndices.clear();
-
-    std::vector<std::pair<unsigned,unsigned>> kpRowCol;
-    kpRowCol.resize(keypoints.size());
-
-    for (unsigned i = 0; i < keypoints.size(); i++) {
-        unsigned r, c;
-        kpRowCol[i] = { r = keypoints[i].y * m_rows / height, c = keypoints[i].x * m_cols / width };
-        m_cells[r * m_cols + c].idxCount++;
-    }
-
-    {
-        unsigned cumulativeOffset = 0;
-        for (unsigned i = 0; i < m_cells.size(); i++) {
-            m_cells[i].idxStart = cumulativeOffset;
-            cumulativeOffset += m_cells[i].idxCount;
-        }
-    }
-
-    m_keypointIndices.resize(keypoints.size());
-    std::vector<unsigned> cellFillState(m_cells.size(), 0);
-    for (unsigned i = 0; i < keypoints.size(); i++) {
-        auto [row, col] = kpRowCol[i];
-        auto cellIdx = row * m_cols + col;
-
-        m_keypointIndices[m_cells[cellIdx].idxStart + cellFillState[cellIdx]] = i;
-        cellFillState[cellIdx]++;
-    }
-}
-
-
-
-
-struct RawMatch {
-    unsigned dstIdx;
-    std::uint16_t bestDistance;
-    std::uint16_t secondBestDistance;
-};
-
-class Frame {
-    public:
-        void extractKeypoints(const Image &img);
-        void buildKPGrid();
-
-        void matchWith(const Frame &other, std::vector<RawMatch> &dst);
-
-        unsigned getWidth() const { return m_width; }
-        unsigned getHeight() const { return m_height; }
-        const std::vector<Keypoint> &getKeypoints() const { return m_keypoints; }
-        const std::vector<std::uint8_t> &getDescriptors() const { return m_descriptors; }
-
-        const FrameKPGrid &getKPGrid() const { return m_kpGrid; }
-    protected:
-        unsigned m_width = 0;
-        unsigned m_height = 0;
-        std::vector<Keypoint> m_keypoints;
-        std::vector<std::uint8_t> m_descriptors;
-
-        FrameKPGrid m_kpGrid;
-};
-
-void Frame::extractKeypoints(const Image &img)
-{
-    m_width = img.width();
-    m_height = img.height();
-
-    m_keypoints.reserve(2000);
-
-    Image fastDetections;
-    fast(img, fastDetections);
-    nonMaxSuppress<false>(fastDetections, descriptorPatternExtend, m_keypoints);
-
-    std::vector<bool> valid;
-    slowBrief(img, m_keypoints, m_descriptors, valid);
-}
-
-void Frame::buildKPGrid()
-{
-    m_kpGrid.resize(m_height / 40, m_width / 40);
-    m_kpGrid.build(m_width, m_height, m_keypoints);
-}
-
-void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst)
-{
-    dst.resize(m_keypoints.size());
-    for (unsigned r = 0; r < m_kpGrid.getRows(); r++)
-        for (unsigned c = 0; c < m_kpGrid.getCols(); c++) {
-            auto cell = m_kpGrid(r, c);
-
-            for (auto srcIdx : cell) {
-                const auto srcKp = m_keypoints[srcIdx];
-                unsigned dstColx2 = srcKp.x * other.getKPGrid().getCols()*2 / other.getWidth();
-                unsigned dstRowx2 = srcKp.y * other.getKPGrid().getRows()*2 / other.getHeight();
-
-                int dstCol = dstColx2 / 2;
-                int dstRow = dstRowx2 / 2;
-                bool rightQuadrant = dstColx2 % 2;
-                bool bottomQuadrant = dstRowx2 % 2;
-
-                int startCol;
-                int endCol;
-                if (rightQuadrant) {
-                    startCol = (int)dstCol;
-                    endCol = (int)dstCol+1;
-                } else {
-                    startCol = (int)dstCol-1;
-                    endCol = (int)dstCol;
-                }
-
-                startCol = std::max(startCol, 0);
-                endCol = std::min(endCol, other.getKPGrid().getCols()-1);
-
-                int startRow;
-                int endRow;
-                if (bottomQuadrant) {
-                    startRow = (int)dstRow;
-                    endRow = (int)dstRow+1;
-                } else {
-                    startRow = (int)dstRow-1;
-                    endRow = (int)dstRow;
-                }
-
-                startRow = std::max(startRow, 0);
-                endRow = std::min(endRow, other.getKPGrid().getRows()-1);
-
-
-                for (unsigned r2 = startRow; r2 < endRow; r2++)
-                    for (unsigned c2 = startCol; c2 < endCol; c2++) {
-                        auto dstCell = other.getKPGrid()(r2, c2);
-
-
-                    }
-            }
-        }
-}
-
-
-
-
 
 
 void slow(const Image &img, Image &dst)
@@ -988,16 +745,7 @@ vuzp1q_s8
 
 int main() {
 
-    std::mt19937 mt;
-    std::normal_distribution<float> dist(0.0f, 8.0f);
-
-    for (unsigned i = 0; i < descriptorPatternMaxSize; i++) {
-        int sx = std::min<int>(std::max<int>(dist(mt), -descriptorPatternExtend), descriptorPatternExtend);
-        int sy = std::min<int>(std::max<int>(dist(mt), -descriptorPatternExtend), descriptorPatternExtend);
-        int dx = std::min<int>(std::max<int>(dist(mt), -descriptorPatternExtend), descriptorPatternExtend);
-        int dy = std::min<int>(std::max<int>(dist(mt), -descriptorPatternExtend), descriptorPatternExtend);
-        descriptorPattern[i] = {sx, sy, dx, dy};
-    }
+    SlowBrief slowBrief;
 
 #ifdef BUILD_FOR_ARM
     auto imgA = cv::imread("/home/pi/frame0126.png", cv::IMREAD_GRAYSCALE);
@@ -1103,13 +851,13 @@ int main() {
     Image outputImg;
     outputImg.allocate(imgA.cols, imgA.rows);
 
-    std::vector<std::tuple<std::uint16_t, std::uint16_t, std::uint8_t>> coords;
+    std::vector<Keypoint> coords;
     coords.reserve(10000);
 
     CPUStopWatch timer;
     for (unsigned i = 0; i < 50; i++) {
         fast(inputImg, outputImg);
-        nonMaxSuppress<true>(outputImg, coords);
+        nonMaxSuppress<true>(outputImg, slowBrief.getPatternExtend(), coords);
     }
     std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
 
