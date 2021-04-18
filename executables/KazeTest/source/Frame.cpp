@@ -2,10 +2,7 @@
 
 #include "Image.h"
 #include "SlowBrief.h"
-
-
-void fast(const Image &img, Image &dst);
-void nonMaxSuppressNWB(Image &img, unsigned borderSize, std::vector<Keypoint> &coords);
+#include "Fast.h"
 
 void Frame::extractKeypoints(const Image &img, const SlowBrief &brief)
 {
@@ -16,7 +13,7 @@ void Frame::extractKeypoints(const Image &img, const SlowBrief &brief)
 
     Image fastDetections;
     fast(img, fastDetections);
-    nonMaxSuppressNWB(fastDetections, brief.getPatternExtend(), m_keypoints);
+    nonMaxSuppress<false>(fastDetections, brief.getPatternExtend(), m_keypoints);
 
     std::vector<bool> valid;
     brief(img, m_keypoints, m_descriptors, valid);

@@ -20,6 +20,8 @@ add_executable(KazeTest
     source/FrameKPGrid.h
     source/Frame.cpp
     source/Frame.h
+    source/Fast.cpp
+    source/Fast.h
     source/simd.h
     source/simd_neon.h
     source/simd_ref.h
