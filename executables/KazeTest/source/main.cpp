@@ -13,7 +13,16 @@
 #include <cstdint>
 #include <random>
 #include <tuple>
-#include <span>
+
+//#include <span>
+#include <algorithm>
+#include <stdio.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include "simd.h"
 
 class CPUStopWatch
 {
@@ -49,384 +58,6 @@ uint64_t CPUStopWatch::getNanoseconds()
         return stop.tv_nsec - m_start.tv_nsec;
     }
 }
-
-
-#ifndef BUILD_FOR_ARM
-
-template<typename type, unsigned dim>
-struct Vuint {
-    Vuint() = default;
-    Vuint(int v) { operator=(v); }
-    Vuint(bool v) { operator=(v); }
-
-    void load(const type *src) {
-        for (unsigned i = 0; i < dim; i++)
-            values[i] = src[i];
-    }
-    void store(type *dst) const {
-        for (unsigned i = 0; i < dim; i++)
-            dst[i] = values[i];
-    }
-
-    void operator=(int v) {
-        for (unsigned i = 0; i < dim; i++)
-            values[i] = v;
-    }
-
-    void operator=(bool v) {
-        for (unsigned i = 0; i < dim; i++)
-            values[i] = v?~0ull:0ull;
-    }
-
-    Vuint<type, dim> operator+(int i) const {
-        auto res = *this;
-        for (auto &v : res.values) v += i;
-        return res;
-    }
-    Vuint<type, dim> operator-(int i) const {
-        auto res = *this;
-        for (auto &v : res.values) v -= i;
-        return res;
-    }
-    Vuint<type, dim> operator+(const Vuint<type, dim> &rhs) const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = values[i] + rhs.values[i];
-        return res;
-    }
-    Vuint<type, dim> operator-(const Vuint<type, dim> &rhs) const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = values[i] - rhs.values[i];
-        return res;
-    }
-
-    Vuint<type, dim> operator&(const Vuint<type, dim> &rhs) const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = values[i] & rhs.values[i];
-        return res;
-    }
-
-    Vuint<type, dim> operator|(const Vuint<type, dim> &rhs) const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = values[i] | rhs.values[i];
-        return res;
-    }
-
-    void operator&=(const Vuint<type, dim> &rhs) {
-        for (unsigned i = 0; i < dim; i++)
-            values[i] &= rhs.values[i];
-    }
-
-    void operator>>=(int v) {
-        for (unsigned i = 0; i < dim; i++)
-            values[i] >>= v;
-    }
-
-    Vuint<type, dim> operator~() const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = ~values[i];
-        return res;
-    }
-
-    Vuint<type, dim> operator<=(const Vuint<type, dim> &rhs) const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = (values[i] <= rhs.values[i])?~0ull:0ull;
-        return res;
-    }
-    Vuint<type, dim> operator>=(const Vuint<type, dim> &rhs) const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = (values[i] >= rhs.values[i])?~0ull:0ull;
-        return res;
-    }
-    Vuint<type, dim> operator>(const Vuint<type, dim> &rhs) const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = (values[i] > rhs.values[i])?~0ull:0ull;
-        return res;
-    }
-
-    void shiftLeftInsert(const Vuint<type, dim> &insert, unsigned shiftAmount) {
-        for (unsigned i = 0; i < dim; i++) {
-            type shifted = insert.values[i] << shiftAmount;
-            type mask = ~(~0ull << shiftAmount);
-            values[i] = (values[i] & mask) | shifted;
-        }
-    }
-
-    Vuint<type, dim> bitTest(const Vuint<type, dim> &rhs) const {
-        Vuint<type, dim> res;
-        for (unsigned i = 0; i < dim; i++)
-            res.values[i] = (values[i] & rhs.values[i])?~0ull:0ull;
-        return res;
-    }
-
-    std::uint32_t extract32B(unsigned offset) const {
-        #if 0
-            const std::uint32_t *ptr = (const std::uint32_t *)&values;
-            return ptr[offset];
-        #else
-            std::uint32_t res;
-            memcpy(&res, ((const char*)values.data()) + offset * 4, 4);
-            return res;
-        #endif
-    }
-
-    std::array<type, dim> values;
-};
-
-
-template<typename type, unsigned dim>
-Vuint<type, dim> saturatingAdd(const Vuint<type, dim> &lhs, const Vuint<type, dim> &rhs) {
-    Vuint<type, dim> res;
-    for (unsigned i = 0; i < dim; i++)
-        res.values[i] = std::min<std::int64_t>((std::int64_t) lhs.values[i] + (std::int64_t)rhs.values[i], std::numeric_limits<type>::max());
-    return res;
-}
-
-template<typename type, unsigned dim>
-Vuint<type, dim> saturatingSub(const Vuint<type, dim> &lhs, const Vuint<type, dim> &rhs) {
-    Vuint<type, dim> res;
-    for (unsigned i = 0; i < dim; i++)
-        res.values[i] = std::max<std::int64_t>((std::int64_t) lhs.values[i] - (std::int64_t)rhs.values[i], std::numeric_limits<type>::min());
-    return res;
-}
-
-template<typename type, unsigned dim>
-Vuint<type, dim> saturatingAdd(const Vuint<type, dim> &lhs, int rhs) {
-    Vuint<type, dim> res;
-    for (unsigned i = 0; i < dim; i++)
-        res.values[i] = std::min<std::int64_t>((std::int64_t) lhs.values[i] + rhs, std::numeric_limits<type>::max());
-    return res;
-}
-
-template<typename type, unsigned dim>
-Vuint<type, dim> saturatingSub(const Vuint<type, dim> &lhs, int rhs) {
-    Vuint<type, dim> res;
-    for (unsigned i = 0; i < dim; i++)
-        res.values[i] = std::max<std::int64_t>((std::int64_t) lhs.values[i] - rhs, std::numeric_limits<type>::min());
-    return res;
-}
-
-
-template<typename type, unsigned dim>
-Vuint<type, dim> absDiff(const Vuint<type, dim> &lhs, const Vuint<type, dim> &rhs) {
-    Vuint<type, dim> res;
-    for (unsigned i = 0; i < dim; i++)
-        if (lhs.values[i] > rhs.values[i])
-            res.values[i] = lhs.values[i] - rhs.values[i];
-        else
-            res.values[i] = rhs.values[i] - lhs.values[i];
-    return res;
-}
-
-
-
-using Vuint8x16 = Vuint<std::uint8_t, 16>;
-using Vuint16x8 = Vuint<std::uint16_t, 8>;
-
-
-Vuint16x8 zip(const Vuint8x16 &a, const Vuint8x16 &b, Vuint16x8 &lower, Vuint16x8 &upper) {
-    for (unsigned i = 0; i < 8; i++)
-        lower.values[i] = (((std::uint16_t) a.values[i]) << 8) | b.values[i];
-
-    for (unsigned i = 0; i < 8; i++)
-        upper.values[i] = (((std::uint16_t) a.values[8+i]) << 8) | b.values[8+i];
-}
-
-Vuint8x16 unzipLower(const Vuint16x8 &a, const Vuint16x8 &b) {
-    Vuint8x16 res;
-
-    for (unsigned i = 0; i < 8; i++)
-        res.values[i] = a.values[i] & 0xFF;
-
-    for (unsigned i = 0; i < 8; i++)
-        res.values[8+i] = b.values[i] & 0xFF;
-
-    return res;
-}
-
-
-
-
-bool any(const Vuint8x16 &v) {
-    bool res = false;
-    for (unsigned i = 0; i < 16; i++)
-        res |= v.values[i];
-    return res;
-}
-
-
-Vuint8x16 sel(const Vuint8x16 &sel, const Vuint8x16 &a, const Vuint8x16 &b);
-bool all(const Vuint8x16 &v);
-
-
-#else
-
-#include <arm_neon.h>
-
-
-struct Vuint8x16 {
-    Vuint8x16() = default;
-    Vuint8x16(int v) { operator=(v); }
-    Vuint8x16(bool v) { operator=(v); }
-
-    void load(const void *src) {
-        values = vld1q_u8((const std::uint8_t*)src);
-    }
-    void store(void *dst) const {
-        vst1q_u8((std::uint8_t*)dst, values);
-    }
-
-    void operator=(int v) {
-        values = vdupq_n_u8(v);
-    }
-
-    void operator=(bool v) {
-        values = vdupq_n_u8(v?~0ull:0ull);
-    }
-
-    Vuint8x16 operator&(const Vuint8x16 &rhs) const {
-        Vuint8x16 res;
-        res.values = vandq_u8(values, rhs.values);
-        return res;
-    }
-
-    void operator&=(const Vuint8x16 &rhs) {
-        values = vandq_u8(values, rhs.values);
-    }
-
-    void operator>>=(int v) {
-        values = vshrq_n_u8(values, v);
-    }
-
-    Vuint8x16 operator~() const {
-        Vuint8x16 res;
-        res.values = vmvnq_u8(values);
-        return res;
-    }
-
-    Vuint8x16 operator<=(const Vuint8x16 &rhs) const {
-        Vuint8x16 res;
-        res.values = vcleq_u8(values, rhs.values);
-        return res;
-    }
-    Vuint8x16 operator>=(const Vuint8x16 &rhs) const {
-        Vuint8x16 res;
-        res.values = vcgeq_u8(values, rhs.values);
-        return res;
-    }
-    Vuint8x16 operator>(const Vuint8x16 &rhs) const {
-        Vuint8x16 res;
-        res.values = vcgtq_u8(values, rhs.values);
-        return res;
-    }
-
-    void shiftLeftInsert(const Vuint8x16 &insert, unsigned shiftAmount) {
-        values = vsliq_n_u8(values, insert.values, shiftAmount);
-    }
-
-    std::uint32_t extract32B(unsigned offset) const {
-        return vgetq_lane_u32((const uint32x4_t)values, offset);
-    }
-
-
-    uint8x16_t values;
-};
-
-struct Vuint16x8 {
-    Vuint16x8() = default;
-    Vuint16x8(int v) { operator=(v); }
-    Vuint16x8(bool v) { operator=(v); }
-
-    void operator=(int v) {
-        values = vdupq_n_u16(v);
-    }
-
-    void operator=(bool v) {
-        values = vdupq_n_u16(v?~0ull:0ull);
-    }
-
-    void operator&=(const Vuint16x8 &rhs) {
-        values = vandq_u16(values, rhs.values);
-    }
-
-    Vuint16x8 bitTest(const Vuint16x8 &rhs) const {
-        Vuint16x8 res;
-        res.values = vtstq_u16(values, rhs.values);
-        return res;
-    }
-
-
-    uint16x8_t values;
-};
-
-
-Vuint8x16 saturatingAdd(const Vuint8x16 &lhs, const Vuint8x16 &rhs) {
-    Vuint8x16 res;
-    res.values = vqaddq_u8(lhs.values, rhs.values);
-    return res;
-}
-
-
-Vuint8x16 saturatingAdd(const Vuint8x16 &lhs, int rhs) {
-    Vuint8x16 res;
-    res.values = vqaddq_u8(lhs.values, vdupq_n_u8(rhs));
-    return res;
-}
-
-Vuint8x16 saturatingSub(const Vuint8x16 &lhs, int rhs) {
-    Vuint8x16 res;
-    res.values = vqsubq_u8(lhs.values, vdupq_n_u8(rhs));
-    return res;
-}
-
-
-void zip(const Vuint8x16 &a, const Vuint8x16 &b, Vuint16x8 &lower, Vuint16x8 &upper) {
-    auto zipped = vzipq_u8(a.values, b.values);
-
-    lower.values = (uint16x8_t&)zipped.val[0];
-    upper.values = (uint16x8_t&)zipped.val[1];
-}
-
-
-Vuint8x16 unzipLower(const Vuint16x8 &a, const Vuint16x8 &b) {
-    auto unzipped = vuzpq_u8((uint8x16_t&)a.values, (uint8x16_t&)b.values);
-    Vuint8x16 res;
-    res.values = unzipped.val[0];
-    return res;
-}
-
-
-inline uint32_t is_not_zero(uint32x4_t v)
-{
-    uint32x2_t tmp = vorr_u32(vget_low_u32(v), vget_high_u32(v));
-    return vget_lane_u32(vpmax_u32(tmp, tmp), 0);
-}
-
-bool any(const Vuint8x16 &v) {
-    return is_not_zero((uint32x4_t)v.values);
-}
-
-
-
-Vuint8x16 absDiff(const Vuint8x16 &lhs, const Vuint8x16 &rhs) {
-    Vuint8x16 res;
-    res.values = vabdq_u8(lhs.values, rhs.values);
-    return res;
-}
-
-
-#endif
-
-
-
-
 
 class Image {
     public:
@@ -493,8 +124,13 @@ void fast(const Image &img, Image &dst)
                 Vuint8x16 notBigger = tapPixel <= centralPixelPlusThresh;
                 Vuint8x16 notSmaller = tapPixel >= centralPixelMinusThresh;
 
-                halfCircleNotBigger_0.shiftLeftInsert(notBigger, tap);
-                halfCircleNotSmaller_0.shiftLeftInsert(notSmaller, tap);
+                #ifdef BUILD_FOR_ARM
+                    halfCircleNotBigger_0.shiftLeftInsert(notBigger, tap);
+                    halfCircleNotSmaller_0.shiftLeftInsert(notSmaller, tap);
+                #else
+                    halfCircleNotBigger_0 |= notBigger & Vuint8x16(1 << tap);
+                    halfCircleNotSmaller_0 |= notSmaller & Vuint8x16(1 << tap);
+                #endif
             }
             Vuint8x16 halfCircleNotBigger_1 = 0;
             Vuint8x16 halfCircleNotSmaller_1 = 0;
@@ -505,8 +141,13 @@ void fast(const Image &img, Image &dst)
                 Vuint8x16 notBigger = tapPixel <= centralPixelPlusThresh;
                 Vuint8x16 notSmaller = tapPixel >= centralPixelMinusThresh;
 
-                halfCircleNotBigger_1.shiftLeftInsert(notBigger, tap-8);
-                halfCircleNotSmaller_1.shiftLeftInsert(notSmaller, tap-8);
+                #ifdef BUILD_FOR_ARM
+                    halfCircleNotBigger_1.shiftLeftInsert(notBigger, tap-8);
+                    halfCircleNotSmaller_1.shiftLeftInsert(notSmaller, tap-8);
+                #else
+                    halfCircleNotBigger_1 |= notBigger & Vuint8x16(1 << (tap-8));
+                    halfCircleNotSmaller_1 |= notSmaller & Vuint8x16(1 << (tap-8));
+                #endif    
             }
 
             Vuint16x8 lowerWarpCircleNotBigger;
@@ -586,7 +227,7 @@ struct Keypoint {
 template<unsigned i>
 void emitCoords(unsigned x, unsigned y, const Vuint8x16 &centralPixel, std::vector<Keypoint> &coords)
 {
-    auto fourPixels = centralPixel.extract32B(i);
+    auto fourPixels = centralPixel.extract32B<i>();
     if (fourPixels != 0) {
         for (unsigned j = 0; j < 4; j++) {
             std::uint8_t strength = (fourPixels >> (j*8)) & 0xFF;
@@ -601,7 +242,7 @@ void emitCoords(unsigned x, unsigned y, const Vuint8x16 &centralPixel, std::vect
 template<bool writeBackImg>
 void nonMaxSuppress(Image &img, unsigned borderSize, std::vector<Keypoint> &coords)
 {
-    borderSize = std::max(borderSize, 1);
+    borderSize = std::max<unsigned>(borderSize, 1);
 
     coords.clear();
     for (unsigned y = borderSize; y+borderSize < img.height(); y++)
@@ -701,7 +342,7 @@ void slowMatch(const std::vector<std::uint8_t> &descriptorsA, const std::vector<
     }
 }
 
-
+#if 0
 
 class FrameKPGrid {
     public:
@@ -877,10 +518,7 @@ void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst)
         }
 }
 
-
-
-
-
+#endif
 
 void slow(const Image &img, Image &dst)
 {
@@ -985,9 +623,91 @@ vuzp1q_s8
 
 */
 
+/*
 
+Load:
+__m128i _mm_load_si128 (__m128i const* mem_addr)
+
+Store:
+void _mm_store_si128 (__m128i* mem_addr, __m128i a)
+
+Broadcast assign:
+__m128i _mm_set1_epi8 (char a)
+
+Broadcast assign bool:
+__m128i _mm_setzero_si128 ()
+
+&:
+__m128i _mm_and_si128 (__m128i a, __m128i b)
+
+>>:
+v = _mm_srli_epi16(v, shift_amount);
+v = _mm_and_si128(v, _mm_set1_epi8(255u >> shift_amount));
+
+&~:
+__m128i _mm_andnot_si128 (__m128i a, __m128i b)
+
+>:
+__m128i _mm_cmpgt_epi8 (__m128i a, __m128i b)
+
+<:
+__m128i _mm_cmplt_epi8 (__m128i a, __m128i b)
+
+==:
+__m128i _mm_cmpeq_epi8 (__m128i a, __m128i b)
+
+|:
+__m128i _mm_or_si128 (__m128i a, __m128i b)
+
+shiftLeftInsert: no
+bitTest: no
+
+extract32B:
+int _mm_extract_epi32 (__m128i a, const int imm8)
+
+saturatingAdd:
+__m128i _mm_adds_epu8 (__m128i a, __m128i b)
+
+saturatingSub:
+__m128i _mm_subs_epu8 (__m128i a, __m128i b)
+
+absDiff:
+__m128i abs_sub_epu8(const __m128i a, const __m128i b) {
+
+    const __m128i ab = _mm_subs_epu8(a, b);
+    const __m128i ba = _mm_subs_epu8(b, a);
+
+    return _mm_or_si128(ab, ba);
+}
+
+zip:
+
+__m128i _mm_unpacklo_epi8 (__m128i a, __m128i b)
+__m128i _mm_unpackhi_epi8 (__m128i a, __m128i b)
+
+unzipLower:
+__m128i _mm_packus_epi16 (__m128i a, __m128i b)
+
+any:
+int _mm_testz_si128 (__m128i a, __m128i b)
+
+
+ */
+
+void handler(int sig) {
+  void *array[10];
+  size_t size;
+
+  // get void*'s for all entries on the stack
+  size = backtrace(array, 10);
+
+  // print out all the frames to stderr
+  fprintf(stderr, "Error: signal %d:\n", sig);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+  exit(1);
+}
 int main() {
-
+    signal(SIGSEGV, handler);   // install our handler
     std::mt19937 mt;
     std::normal_distribution<float> dist(0.0f, 8.0f);
 
@@ -1003,8 +723,10 @@ int main() {
     auto imgA = cv::imread("/home/pi/frame0126.png", cv::IMREAD_GRAYSCALE);
     auto imgB = cv::imread("/home/pi/frame0130.png", cv::IMREAD_GRAYSCALE);
 #else
-    auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0126.png", cv::IMREAD_GRAYSCALE);
-    auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0130.png", cv::IMREAD_GRAYSCALE);
+//    auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0126.png", cv::IMREAD_GRAYSCALE);
+//    auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0130.png", cv::IMREAD_GRAYSCALE);
+    auto imgA = cv::imread("/home/irina/libcompile/software-appcvrobot/data/IMG_3745.JPG", cv::IMREAD_GRAYSCALE);
+    auto imgB = cv::imread("/home/irina/libcompile/software-appcvrobot/data/IMG_3746.JPG", cv::IMREAD_GRAYSCALE);
 #endif
 
 #if 0
@@ -1103,24 +825,26 @@ int main() {
     Image outputImg;
     outputImg.allocate(imgA.cols, imgA.rows);
 
-    std::vector<std::tuple<std::uint16_t, std::uint16_t, std::uint8_t>> coords;
+    //std::vector<std::tuple<std::uint16_t, std::uint16_t, std::uint8_t>> coords;
+    std::vector<Keypoint> coords;
     coords.reserve(10000);
 
     CPUStopWatch timer;
-    for (unsigned i = 0; i < 50; i++) {
+    unsigned num_iter = 100;
+    for (unsigned i = 0; i < num_iter; i++) {
         fast(inputImg, outputImg);
-        nonMaxSuppress<true>(outputImg, coords);
+        //nonMaxSuppress<true>(outputImg, 16, coords);
     }
-    std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
+    std::cout << timer.getNanoseconds() * 1e-9f / num_iter << " seconds/image" << std::endl;
 
 
-    timer.start();
-    for (unsigned i = 0; i < 50; i++) {
-	    std::vector<std::uint8_t> descriptorsA;
-	    std::vector<bool> validA;
-	    slowBrief(inputImg, coords, descriptorsA, validA);
-    }
-    std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
+//    timer.start();
+//    for (unsigned i = 0; i < 50; i++) {
+//	    std::vector<std::uint8_t> descriptorsA;
+//	    std::vector<bool> validA;
+//        slowBrief(inputImg, coords, descriptorsA, validA);
+//    }
+//    std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
 
 
     for (unsigned y = 0; y < imgA.rows; y++)
@@ -1136,9 +860,9 @@ int main() {
 
 
     timer.start();
-    for (unsigned i = 0; i < 50; i++)
+    for (unsigned i = 0; i < num_iter; i++)
         slow(inputImg, outputImg);
-    std::cout << timer.getNanoseconds() * 1e-9f / 50 << " seconds/image" << std::endl;
+    std::cout << timer.getNanoseconds() * 1e-9f / num_iter << " seconds/image" << std::endl;
 /*
     for (unsigned y = 0; y < imgA.rows; y++)
         for (unsigned x = 0; x < imgA.cols; x++) {

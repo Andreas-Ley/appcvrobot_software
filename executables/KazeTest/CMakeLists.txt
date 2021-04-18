@@ -10,6 +10,10 @@ endif(BUILD_FOR_ARM)
 
 add_executable(KazeTest
 	source/main.cpp
+        source/simd.h
+        source/simd_neon.h
+        source/simd_ref.h
+        source/simd_sse.h
 )
 
 target_include_directories(KazeTest PUBLIC
