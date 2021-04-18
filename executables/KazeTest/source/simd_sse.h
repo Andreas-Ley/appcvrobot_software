@@ -44,25 +44,25 @@ struct Vuint8x16 {
 
     Vuint8x16 operator~() const {
         Vuint8x16 res;
-        res.values = _mm_andnot_si128(values,  _mm_set1_epi8(255u));
+        //res.values = _mm_andnot_si128(values,  _mm_set1_epi8(255u));
+        res.values = _mm_xor_si128(values, _mm_set1_epi8(255u));
         return res;
     }
 
     Vuint8x16 operator<=(const Vuint8x16 &rhs) const {
         Vuint8x16 res;
-        res.values = _mm_or_si128(_mm_cmplt_epi8(values, rhs.values),
-            _mm_cmpeq_epi8(values, rhs.values));
+        res.values = _mm_cmpeq_epi8(_mm_max_epu8(values, rhs.values), rhs.values);
         return res;
     }
     Vuint8x16 operator>=(const Vuint8x16 &rhs) const {
         Vuint8x16 res;
-        res.values = _mm_or_si128(_mm_cmpgt_epi8(values, rhs.values),
-            _mm_cmpeq_epi8(values, rhs.values));
+        res.values = _mm_cmpeq_epi8(_mm_max_epu8(values, rhs.values), values);
         return res;
     }
     Vuint8x16 operator>(const Vuint8x16 &rhs) const {
         Vuint8x16 res;
-        res.values = _mm_cmpgt_epi8(values, rhs.values);
+        //res.values = _mm_cmpgt_epi8(values, rhs.values);
+        res = ~((*this) <= rhs);
         return res;
     }
 
@@ -92,11 +92,17 @@ struct Vuint16x8 {
 
     Vuint16x8 bitTest(const Vuint16x8 &rhs) const {
         Vuint16x8 res;
-        res.values = _mm_cmpgt_epi16(_mm_and_si128(values, rhs.values),
+        res.values = _mm_cmpeq_epi16(_mm_and_si128(values, rhs.values),
             _mm_setzero_si128());
+        return ~res;
+    }
+
+    Vuint16x8 operator~() const {
+        Vuint16x8 res;
+        res.values = _mm_andnot_si128(values, _mm_set1_epi8(255u));
         return res;
     }
-    
+
     __m128i values;
 };
 
@@ -119,7 +125,7 @@ inline Vuint8x16 saturatingSub(const Vuint8x16 &lhs, int rhs) {
     return res;
 }
 
-inline void zip(const Vuint8x16 &a, const Vuint8x16 &b, 
+inline void zip(const Vuint8x16 &a, const Vuint8x16 &b,
         Vuint16x8 &lower, Vuint16x8 &upper) {
     lower.values = _mm_unpacklo_epi8(a.values, b.values);
     upper.values = _mm_unpackhi_epi8(a.values, b.values);
@@ -127,12 +133,12 @@ inline void zip(const Vuint8x16 &a, const Vuint8x16 &b,
 
 inline Vuint8x16 unzipLower(const Vuint16x8 &a, const Vuint16x8 &b) {
     Vuint8x16 res;
-    res.values = _mm_packus_epi16(a.values,b.values);
+    res.values = _mm_packs_epi16(a.values,b.values);
     return res;
 }
 
 inline bool any(const Vuint8x16 &v) {
-    return _mm_testz_si128(v.values,v.values);
+    return !_mm_testz_si128(v.values,v.values);
 }
 
 inline Vuint8x16 absDiff(const Vuint8x16 &lhs, const Vuint8x16 &rhs) {
