@@ -2,6 +2,9 @@ cmake_minimum_required (VERSION 3.0)
 
 
 find_package( OpenCV REQUIRED )
+find_package(Eigen3 3.1.0 REQUIRED)
+
+find_package(Boost COMPONENTS system REQUIRED)
 
 option(BUILD_FOR_ARM "Build with all calls to robot functions being empty stubs (for building on desktop PCs)" OFF)
 if(BUILD_FOR_ARM)
@@ -26,13 +29,26 @@ add_executable(KazeTest
     source/simd_neon.h
     source/simd_ref.h
     source/simd_sse.h
+    source/Map.cpp
+    source/Map.h
+    source/RansacE.cpp
+    source/RansacE.h
+    source/RansacH.cpp
+    source/RansacH.h
+    source/SLAM.cpp
+    source/SLAM.h
+    source/MVGMath.cpp
+    source/MVGMath.h
 )
 
 target_include_directories(KazeTest PUBLIC
     ${OpenCV_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
 )
 
 target_link_libraries(KazeTest
     ${OpenCV_LIBS}
+    ${Boost_LIBRARIES}
+    ${EIGEN3_LIBRARIES}
 )
-

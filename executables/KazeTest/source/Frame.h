@@ -21,7 +21,7 @@ class Frame {
         void extractKeypoints(const Image &img, const SlowBrief &brief);
         void buildKPGrid();
 
-        void matchWith(const Frame &other, std::vector<RawMatch> &dst);
+        void matchWith(const Frame &other, std::vector<RawMatch> &dst) const;
 
         unsigned getWidth() const { return m_width; }
         unsigned getHeight() const { return m_height; }

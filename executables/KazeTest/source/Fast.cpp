@@ -3,6 +3,7 @@
 
 void fast(const Image &img, Image &dst)
 {
+    dst.allocate(img.width(), img.height());
     const int taps[16][2] = {
         {0, -3},
         {1, -3},

@@ -21,11 +21,11 @@ void Frame::extractKeypoints(const Image &img, const SlowBrief &brief)
 
 void Frame::buildKPGrid()
 {
-    m_kpGrid.resize(m_height / 40, m_width / 40);
+    m_kpGrid.resize(std::max(1u, m_height / 64), std::max(1u, m_width / 64));
     m_kpGrid.build(m_width, m_height, m_keypoints);
 }
 
-void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst)
+void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst) const
 {
     dst.resize(m_keypoints.size());
     for (unsigned r = 0; r < m_kpGrid.getRows(); r++)
@@ -77,8 +77,8 @@ void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst)
 
                 const unsigned descWords = DESCRIPTOR_BYTES / 4;
 
-                for (unsigned r2 = startRow; r2 < endRow; r2++)
-                    for (unsigned c2 = startCol; c2 < endCol; c2++) {
+                for (unsigned r2 = startRow; r2 <= endRow; r2++)
+                    for (unsigned c2 = startCol; c2 <= endCol; c2++) {
                         auto dstCell = other.getKPGrid()(r2, c2);
 
                         for (auto dstIdx : dstCell) {

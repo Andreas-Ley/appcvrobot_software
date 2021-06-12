@@ -41,4 +41,19 @@ void FrameKPGrid::build(unsigned width, unsigned height, const std::vector<Keypo
         m_keypointIndices[m_cells[cellIdx].idxStart + cellFillState[cellIdx]] = i;
         cellFillState[cellIdx]++;
     }
+/*
+    for (unsigned r = 0; r < m_rows; r++)
+        for (unsigned c = 0; c < m_cols; c++) {
+            unsigned xMin = c * width / m_cols;
+            unsigned yMin = r * height / m_rows;
+            unsigned xMax = (c + 1) * width / m_cols;
+            unsigned yMax = (r + 1) * height / m_rows;
+
+            for (auto kpIdx : (*this)(r, c)) {
+                auto &kp = keypoints[kpIdx];
+                if (kp.x < xMin || kp.x > xMax || kp.y < yMin || kp.y > yMax)
+                    throw "huhu";
+            }
+        }
+*/
 }

@@ -8,10 +8,10 @@
 #include <string.h>
 
 
-SlowBrief::SlowBrief(unsigned dimension, unsigned patternExtend):
+SlowBrief::SlowBrief(unsigned dimension, unsigned patternExtend, unsigned seed):
     m_patternExtend(patternExtend){
 
-    std::mt19937 mt;
+    std::mt19937 mt(seed);
     std::normal_distribution<float> dist(0.0f, 8.0f);
     m_descriptorPattern.resize(dimension);
 

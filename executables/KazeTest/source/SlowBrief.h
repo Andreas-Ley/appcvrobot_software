@@ -9,7 +9,7 @@ class Keypoint;
 
 class SlowBrief {
     public:
-        SlowBrief(unsigned dimension = 256, unsigned patternExtend = 24);
+        SlowBrief(unsigned dimension = 256, unsigned patternExtend = 24, unsigned seed = 1337);
 
         void operator()(const Image &img,
                 const std::vector<Keypoint> &keypoints,

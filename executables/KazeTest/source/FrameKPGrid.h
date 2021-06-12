@@ -11,7 +11,7 @@ class FrameKPGrid {
 
         std::span<const unsigned> operator()(unsigned r, unsigned c) const {
             const auto &cell = m_cells[r*m_cols+c];
-            return std::span<const unsigned>(m_keypointIndices.data()+cell.idxStart, cell.idxStart+cell.idxCount);
+            return std::span<const unsigned>(m_keypointIndices.data()+cell.idxStart, cell.idxCount);
         }
 
         void build(unsigned width, unsigned height, const std::vector<Keypoint> &keypoints);
