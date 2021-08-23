@@ -477,7 +477,7 @@ int main() {
 
     std::cout << "Number of cameras in map: " << slam.getMap().m_cameras.size() << std::endl;
 
-#if 0
+#if 1
     {
 
         auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0140.png");
@@ -486,10 +486,10 @@ int main() {
 
         auto &camera = slam.getMap().m_cameras.front();
 
-        for (auto &t : camera.getMatches().getTracks()) {
+        for (auto &trackRef : camera.getTrackReferences()) {
+            auto *track = trackRef.track;
 
-
-            if (t.matches.size() < 2) continue;
+            if (track->getObservation().size() < 5) continue;
 
             struct TrackPoint {
                 unsigned x, y;
@@ -497,22 +497,15 @@ int main() {
             };
             std::vector<TrackPoint> points;
 
-            const auto & kp = camera.getFrame().getKeypoints()[t.srcKeypointIdx];
-            points.push_back({
-                .x = kp.x*4,
-                .y = kp.y*4,
-                .frameIdx = camera.getCameraIndex()
-            });
+            for (const auto &obs : track->getObservation()) {
+//                if (obs.camera->getCameraIndex() > 2) continue;
 
-            for (const auto &m : t.matches) {
-//                if (m.otherCamera->getCameraIndex() > 2) continue;
-
-                const auto &kp = m.otherCamera->getFrame().getKeypoints()[m.dstKeypointIdx];
+                const auto &kp = obs.camera->getFrame().getKeypoints()[obs.keypointIdx];
 
                 points.push_back({
                     .x = kp.x*4,
                     .y = kp.y*4,
-                    .frameIdx = m.otherCamera->getCameraIndex()
+                    .frameIdx = obs.camera->getCameraIndex()
                 });
             }
 
@@ -530,7 +523,7 @@ int main() {
         cv::imwrite("tracks_frame0.png", imgA);
     }
 
-
+/*
     {
 
         auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0140.png");
@@ -591,6 +584,7 @@ int main() {
             break;
         }
     }
+    */
 #endif
 
 

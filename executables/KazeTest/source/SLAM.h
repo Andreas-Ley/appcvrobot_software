@@ -43,4 +43,6 @@ class SLAM {
         void firstFrame(Frame frame);
         void secondFrame(Frame frame);
         void nextFrame(Frame frame);
+
+        void generateNewTracks(Camera &camera1, Camera &camera2);
 };

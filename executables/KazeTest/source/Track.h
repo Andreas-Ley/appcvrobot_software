@@ -21,7 +21,7 @@ class Track {
 
         struct Observation {
             Camera* camera = nullptr;
-            uint16_t keypointIdx = ~0u;
+            uint16_t keypointIdx = uint16_t(~0u);
             uint16_t matchScore = 0;
             uint16_t residual_times_16 = 0;
         };

@@ -26,6 +26,7 @@ void Frame::buildKPGrid(const InternalCalibration &internalCalib)
     internalCalib.undistortKeypoints(m_keypoints.data(), m_keypoints.size());
 
     m_kpGrid.resize(std::max(1u, m_height / 64), std::max(1u, m_width / 64));
+    //m_kpGrid.resize(3, 3);
     m_kpGrid.build(
         -(int)m_width/2,
         -(int)m_height/2,
@@ -124,4 +125,58 @@ void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst) const
                 dst[srcIdx].secondBestDistance = secondClosestDistance;
             }
         }
+}
+
+void Frame::matchWith(const Frame &other, const Eigen::Matrix3f &F, float maxDistance, std::vector<RawMatch> &dst) const
+{
+
+    dst.resize(m_keypoints.size());
+
+    for (unsigned srcIdx = 0; srcIdx < m_keypoints.size(); srcIdx++) {
+
+        const auto &kp = m_keypoints[srcIdx];
+
+        Eigen::Vector3f epiLine = F * Eigen::Vector3f(kp.x_undistorted_times4, kp.y_undistorted_times4, 4.0f);
+        epiLine /= epiLine.head<2>().norm();
+
+        const std::uint32_t * __restrict__ srcPtr = (const std::uint32_t *) &m_descriptors[srcIdx * DESCRIPTOR_BYTES];
+        unsigned closestMatch = 0;
+        unsigned closestDistance = 10000;
+        unsigned secondClosestDistance = 10000;
+
+        for (unsigned dstIdx = 0; dstIdx < other.m_keypoints.size(); dstIdx++) {
+
+            const auto &dstKp = other.m_keypoints[dstIdx];
+
+            float distance = (
+                epiLine[0] * dstKp.x_undistorted_times4 +
+                epiLine[1] * dstKp.y_undistorted_times4 +
+                epiLine[2] * 4.0f
+            ) / 4.0f;
+
+            if (std::abs(distance) < maxDistance) {
+
+                const unsigned descWords = DESCRIPTOR_BYTES / 4;
+
+                const std::uint32_t * __restrict__ dstPtr = (const std::uint32_t *) &other.m_descriptors[dstIdx * DESCRIPTOR_BYTES];
+
+                unsigned hammingDistance = 0;
+                for (unsigned k = 0; k < descWords; k++)
+                    hammingDistance += __builtin_popcount(srcPtr[k] ^ dstPtr[k]);
+
+                if (hammingDistance < closestDistance) {
+                    secondClosestDistance = closestDistance;
+                    closestDistance = hammingDistance;
+                    closestMatch = dstIdx;
+                } else if (hammingDistance < secondClosestDistance) {
+                    secondClosestDistance = hammingDistance;
+                }
+            }
+        }
+
+        dst[srcIdx].dstIdx = closestMatch;
+        dst[srcIdx].bestDistance = closestDistance;
+        dst[srcIdx].secondBestDistance = secondClosestDistance;
+    }
+
 }

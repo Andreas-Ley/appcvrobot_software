@@ -347,5 +347,108 @@ void SLAM::nextFrame(Frame frame)
     std::fstream plyFile("tracks.ply", std::fstream::out);
     m_map.exportToPly(plyFile);
 
+
+    generateNewTracks(*newCamera, *lastCameras.front());
 }
 
+
+void SLAM::generateNewTracks(Camera &camera1, Camera &camera2)
+{
+    auto relativePose_c2 = camera2.getPose().getPoseRelativeTo(camera1.getPose());
+
+    Eigen::Matrix3f KInv = m_internalCalib.internalCalib.inverse();
+
+
+
+    Eigen::Vector3f t = -relativePose_c2.world2eye*relativePose_c2.location;
+
+    Eigen::Matrix3f skewSymmetricMatrix;
+    skewSymmetricMatrix.setZero();
+    skewSymmetricMatrix(0, 1) = -t[2];
+    skewSymmetricMatrix(1, 0) = t[2];
+
+    skewSymmetricMatrix(0, 2) = t[1];
+    skewSymmetricMatrix(2, 0) = -t[1];
+
+    skewSymmetricMatrix(1, 2) = -t[0];
+    skewSymmetricMatrix(2, 1) = t[0];
+
+    Eigen::Matrix3f E = skewSymmetricMatrix * relativePose_c2.world2eye;
+
+    Eigen::Matrix3f F = KInv.transpose() * E * KInv;
+
+
+    std::vector<Track*> cam1_kpInUse(camera1.getFrame().getKeypoints().size(), nullptr);
+    for (auto &ref : camera1.getTrackReferences())
+        cam1_kpInUse[ref.keypointIndex] = ref.track;
+    std::vector<Track*> cam2_kpInUse(camera2.getFrame().getKeypoints().size(), nullptr);
+    for (auto &ref : camera2.getTrackReferences())
+        cam2_kpInUse[ref.keypointIndex] = ref.track;
+
+
+    std::vector<RawMatch> rawMatches;
+    camera1.getFrame().matchWith(camera2.getFrame(), F, 20, rawMatches);
+
+    unsigned thresN = m_settings.maxDistanceRatio.numerator();
+    unsigned thresD = m_settings.maxDistanceRatio.denominator();
+
+    std::vector<NewTrack> tracks;
+    tracks.reserve(rawMatches.size());
+
+    Eigen::Matrix<float, 3, 4> P1;
+    P1.setIdentity();
+    P1.block<3,3>(0,0) = camera1.getPose().world2eye;
+    P1.block<3,1>(0, 3) = -camera1.getPose().world2eye * camera1.getPose().location;
+    //P1 = m_internalCalib.internalCalib * P1;
+
+
+    Eigen::Matrix<float, 3, 4> P2;
+    P2.setIdentity();
+    P2.block<3,3>(0,0) = camera2.getPose().world2eye;
+    P2.block<3,1>(0, 3) = -camera2.getPose().world2eye * camera2.getPose().location;
+    //P2 = m_internalCalib.internalCalib * P2;
+
+
+
+    PointTriangulator triangulator(P1, P2);
+
+
+    unsigned count = 0;
+    for (unsigned srcIdx = 0; srcIdx < rawMatches.size(); srcIdx++) {
+        auto &newMatch = rawMatches[srcIdx];
+        if (cam1_kpInUse[srcIdx] != nullptr && cam1_kpInUse[srcIdx] == cam2_kpInUse[newMatch.dstIdx])
+            continue;
+
+        if (newMatch.bestDistance < m_settings.matchMaxDistance)
+            if (newMatch.bestDistance * thresD < newMatch.secondBestDistance * thresN) {
+                count++;
+
+                const auto &kpA = camera1.getFrame().getKeypoints()[srcIdx];
+                const auto &kpB = camera2.getFrame().getKeypoints()[newMatch.dstIdx];
+
+                Eigen::Vector3f locA = KInv * Eigen::Vector3f(kpA.x_undistorted_times4, kpA.y_undistorted_times4, 4.0f);
+                Eigen::Vector3f locB = KInv * Eigen::Vector3f(kpB.x_undistorted_times4, kpB.y_undistorted_times4, 4.0f);
+
+                Eigen::Vector4f loc3D = triangulator.triangulate(locA.head<2>()/locA[2], locB.head<2>()/locB[2]);
+
+                float proj_z1 = P1.block<1, 4>(2,0) * loc3D;
+                float proj_z2 = P2.block<1, 4>(2,0) * loc3D;
+
+                if (proj_z1 > 0.0f == loc3D[3] > 0.0f &&
+                    proj_z2 > 0.0f == loc3D[3] > 0.0f) {
+
+                    tracks.push_back({
+                        .location = loc3D,
+                        .srcKeypointIdx = srcIdx,
+                        .dstKeypointIdx = newMatch.dstIdx,
+                        .matchScore = 0
+                    });
+                }
+
+            }
+    }
+
+    camera1.addNewTracks(&camera2, tracks.size(), tracks.data());
+
+    std::cout << "Potential new tracks: " << count << std::endl;
+}

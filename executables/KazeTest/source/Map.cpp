@@ -104,6 +104,15 @@ void InternalCalibration::undistortKeypoints(Keypoint *kps, unsigned count) cons
 #endif
 
 
+CameraPose CameraPose::getPoseRelativeTo(const CameraPose &anchor) const
+{
+    CameraPose res;
+    res.location = location - anchor.location;
+    //res.world2eye = (anchor.world2eye * world2eye.transpose()).transpose();
+    res.world2eye = world2eye * anchor.world2eye.transpose();
+    return res;
+}
+
 Camera::Camera(Map &map, Frame frame, InternalCalibration *internalCalib) : m_map(map), m_frame(std::move(frame)), m_internalCalib(internalCalib)
 {
     m_pose.location.setZero();
@@ -129,10 +138,10 @@ Camera::~Camera()
 
 void Camera::addNewTracks(Camera *otherCamera, unsigned count, NewTrack *tracks)
 {
-    auto& trackAllocator = m_map.getTrackAllocator();
+    auto& trackAllocator = m_map.getTracks();
     for (unsigned i = 0; i < count; i++) {
         assert(!keyPointIsReferenced(tracks[i].srcKeypointIdx));
-        assert(!otherCamera->keyPointIsReferenced(tracks[i].dstKeypointIdx));
+        //assert(!otherCamera->keyPointIsReferenced(tracks[i].dstKeypointIdx));
 
         Eigen::Vector3f d = tracks[i].location.head<3>() - m_pose.location * tracks[i].location[3];
 

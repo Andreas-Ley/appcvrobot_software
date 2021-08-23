@@ -62,6 +62,8 @@ struct InternalCalibration {
 struct CameraPose {
     Eigen::Vector3f location;
     Eigen::Matrix3f world2eye;
+
+    CameraPose getPoseRelativeTo(const CameraPose &anchor) const;
 };
 
 struct NewTrack {
@@ -88,7 +90,7 @@ class Camera {
         Camera(const Camera &) = delete;
         void operator=(const Camera &) = delete;
 
-        inline const unsigned getCameraIndex() const { return m_cameraIndex; }
+        inline unsigned getCameraIndex() const { return m_cameraIndex; }
 
         inline const Frame &getFrame() const { return m_frame; }
 
@@ -127,7 +129,7 @@ class Map {
 
         void exportToPly(std::fstream &plyFile);
 
-        TrackList& getTrackAllocator() { return m_tracks;}
+        TrackList& getTracks() { return m_tracks; }
 
     protected:
         TrackList m_tracks;

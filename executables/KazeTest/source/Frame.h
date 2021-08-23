@@ -2,10 +2,14 @@
 
 #include "FrameKPGrid.h"
 
+#include <Eigen/Dense>
+
 class SlowBrief;
 class Image;
 
 struct InternalCalibration;
+
+struct CameraPose;
 
 struct RawMatch {
     unsigned dstIdx;
@@ -24,6 +28,7 @@ class Frame {
         void buildKPGrid(const InternalCalibration &internalCalib);
 
         void matchWith(const Frame &other, std::vector<RawMatch> &dst) const;
+        void matchWith(const Frame &other, const Eigen::Matrix3f &F, float maxDistance, std::vector<RawMatch> &dst) const;
 
 
         unsigned getWidth() const { return m_width; }
