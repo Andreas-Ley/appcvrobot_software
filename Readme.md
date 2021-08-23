@@ -74,6 +74,9 @@ Center crop for tweaking focus:
     ffplay -fflags nobuffer -flags low_delay -framedrop -strict experimental -probesize 32 -analyzeduration 0 -sync ext -vf "crop=640:480:640:480"  udp://@:1337
 
 
+display and record on PC:g
+ffmpeg -i udp://@:1337 -map 0 -c:v libx264 -crf 23 -f tee "test.mp4|[f=nut]pipe:" | ffplay pipe:
+
 ## Misc
 
 use raspi-config to change GPU memory to 256MB (otherwise can't record in high resolutions)

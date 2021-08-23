@@ -6,14 +6,17 @@
 #include <boost/rational.hpp>
 
 struct Settings {
-    float ransacThresh = 0.01f;
+    float ransacThresh = 0.0075f;
     unsigned minKeypointsFirstFrame = 1000;
     unsigned minEInliersSecondFrame = 500;
     float maxEHInliersSecondFrameFraction = 0.8f;
     unsigned minInitialTracks = 400;
+    unsigned minPnPInliers = 100;
 
     unsigned matchMaxDistance = 80;
     boost::rational<unsigned> maxDistanceRatio = {2,3};
+
+    unsigned numPastFramesMatch = 3;
 };
 
 
@@ -24,6 +27,8 @@ class SLAM {
         bool tryIngestImage(Image image);
 
         CameraPose getCurrentCameraEstimate() { return {}; }
+
+        Map &getMap() { return m_map; }
     protected:
         Settings m_settings;
 

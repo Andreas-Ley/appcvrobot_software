@@ -2,6 +2,7 @@
 
 #include "RansacE.h"
 #include "RansacH.h"
+#include "RansacPnP.h"
 #include "MVGMath.h"
 #include "Image.h"
 
@@ -38,7 +39,7 @@ Frame SLAM::processImage(Image image)
     Frame res;
 
     res.extractKeypoints(image, m_brief);
-    res.buildKPGrid();
+    res.buildKPGrid(m_internalCalib);
 
     return res;
 }
@@ -82,8 +83,8 @@ void SLAM::secondFrame(Frame frame)
 
         // todo: Radial distortion
 
-        Eigen::Vector3f locA = KInv * Eigen::Vector3f(kpA.x, kpA.y, 1.0f);
-        Eigen::Vector3f locB = KInv * Eigen::Vector3f(kpB.x, kpB.y, 1.0f);
+        Eigen::Vector3f locA = KInv * Eigen::Vector3f(kpA.x_undistorted_times4, kpA.y_undistorted_times4, 4.0f);
+        Eigen::Vector3f locB = KInv * Eigen::Vector3f(kpB.x_undistorted_times4, kpB.y_undistorted_times4, 4.0f);
 
         pairs.push_back({locA.head<2>()/locA[2], locB.head<2>()/locB[2]});
         pairIndices.push_back({i, match.dstIdx});
@@ -179,7 +180,6 @@ void SLAM::secondFrame(Frame frame)
         if (distances[i] > m_settings.ransacThresh) continue;
         auto &p = pairs[i];
 
-        // todo: radial distortion
 
         Eigen::Vector4f loc3D = triangulator.triangulate(p.first, p.second);
 
@@ -209,5 +209,143 @@ void SLAM::secondFrame(Frame frame)
 
 void SLAM::nextFrame(Frame frame)
 {
+    std::vector<Camera*> lastCameras;
+    lastCameras.reserve(m_settings.numPastFramesMatch);
+    std::vector<std::vector<RawMatch>> rawMatches;
+    rawMatches.reserve(m_settings.numPastFramesMatch);
+
+    for (auto it =  m_map.m_cameras.rbegin(); it != m_map.m_cameras.rend(); ++it){
+        lastCameras.push_back(&*it);
+        rawMatches.push_back({});
+        it->getFrame().matchWith(frame, rawMatches.back());
+
+        if (lastCameras.size() >= m_settings.numPastFramesMatch) break;
+    }
+
+    unsigned thresN = m_settings.maxDistanceRatio.numerator();
+    unsigned thresD = m_settings.maxDistanceRatio.denominator();
+
+    std::vector<std::pair<Eigen::Vector2f, Eigen::Vector4f>> pairs;
+
+    struct PairInfo {
+        Track *track;
+        unsigned newCamKPIndex;
+    };
+
+    std::vector<PairInfo> pairInfo;
+
+    Eigen::Vector3f coordinateCenterAnchor = lastCameras.front()->getPose().location;
+
+
+    Eigen::Matrix3f KInv = m_internalCalib.internalCalib.inverse();
+
+    auto considerKeypoint = [&](unsigned potentialMatchingCamera, unsigned potentialMatchingKeypoint, Track *track){
+        auto &newMatch = rawMatches[potentialMatchingCamera][potentialMatchingKeypoint];
+
+        if (newMatch.bestDistance < m_settings.matchMaxDistance)
+            if (newMatch.bestDistance * thresD < newMatch.secondBestDistance * thresN) {
+
+                auto *anchorCamera = track->getAnchor().camera;
+                auto anchorKPIdx = track->getAnchor().keypointIdx;
+
+                Eigen::Vector4f imageSpace;
+                imageSpace[0] = anchorCamera->getFrame().getKeypoints()[anchorKPIdx].x_undistorted_times4;
+                imageSpace[1] = anchorCamera->getFrame().getKeypoints()[anchorKPIdx].y_undistorted_times4;
+                imageSpace[2] = track->getRcpZ() * 4.0f;
+                imageSpace[3] = 4.0f;
+
+                const auto &invP = anchorCamera->getInverseProjectionViewNoTranslation();
+
+                Eigen::Vector4f cam_relative_ws = invP * imageSpace;
+
+                Eigen::Vector3f rel_location;
+                rel_location = anchorCamera->getPose().location - coordinateCenterAnchor;
+
+                Eigen::Vector4f ws = cam_relative_ws;
+                ws.head<3>() += rel_location * cam_relative_ws[3];
+                ws /= ws.norm();
+
+                Eigen::Vector3f loc = KInv * Eigen::Vector3f(
+                                frame.getKeypoints()[newMatch.dstIdx].x_undistorted_times4,
+                                frame.getKeypoints()[newMatch.dstIdx].y_undistorted_times4, 4.0f);
+                pairs.push_back({
+                    loc.head<2>()/loc[2],
+                    ws
+                });
+                pairInfo.push_back({
+                    .track = track,
+                    .newCamKPIndex = newMatch.dstIdx
+                });
+            }
+    };
+
+    unsigned startIndex = lastCameras.back()->getCameraIndex();
+    unsigned lastIndex = lastCameras.front()->getCameraIndex();
+
+    unsigned trackCount = 0;
+    for (unsigned i = 0; i < lastCameras.size(); i++) {
+        for (const auto &trackRef : lastCameras[i]->getTrackReferences()) {
+            considerKeypoint(i, trackRef.keypointIndex, trackRef.track);
+        }
+        trackCount += lastCameras[i]->getTrackReferences().size();
+    }
+
+    std::cout << "trackCount: " << trackCount << std::endl;
+    std::cout << "Num pairs: " << pairs.size() << std::endl;
+
+    if (pairs.empty())
+        return;
+
+    RansacPnP ransac;
+    ransac.setMaxDistance(m_settings.ransacThresh);
+
+    Eigen::Matrix3f R;
+    Eigen::Vector3f t;
+    std::vector<float> sqrDistances;
+    unsigned numInliers = ransac.process(pairs, sqrDistances, R, t);
+
+    std::cout << "First camera location: " << std::endl << lastCameras[1]->getPose().location << std::endl << std::endl;
+    std::cout << "Second camera location: " << std::endl << lastCameras[0]->getPose().location << std::endl << std::endl;
+
+    std::cout << "Num inliers for pnp: " << numInliers << " of " << pairs.size() << std::endl;
+
+    std::cout << "R: " << std::endl << R << std::endl << std::endl;
+    std::cout << "t: " << std::endl << t << std::endl << std::endl;
+
+    if (numInliers < m_settings.minPnPInliers) return;
+
+    CameraPose pose;
+    pose.world2eye = R;
+    pose.location = coordinateCenterAnchor - R.transpose() * t;
+    std::cout << "pose.location: " << std::endl << pose.location << std::endl << std::endl;
+
+    auto *newCamera = new Camera(m_map, std::move(frame), &m_internalCalib, pose);
+
+    for (unsigned i = 0; i < pairs.size(); i++) {
+        if (sqrDistances[i] > m_settings.ransacThresh*m_settings.ransacThresh) continue;
+
+        bool alreadyAdded = false;
+        auto track = pairInfo[i].track;
+        for (auto it = track->getObservation().rbegin(); it != track->getObservation().rend(); ++it) {
+            if (it->camera != newCamera) break;
+
+            if (it->keypointIdx == pairInfo[i].newCamKPIndex) {
+                alreadyAdded = true;
+                break;
+            }
+        }
+
+        if (!alreadyAdded) {
+            pairInfo[i].track->addObservation({
+                .camera = newCamera,
+                .keypointIdx = (uint16_t) pairInfo[i].newCamKPIndex,
+                .matchScore = 0
+            });
+        }
+    }
+
+    std::fstream plyFile("tracks.ply", std::fstream::out);
+    m_map.exportToPly(plyFile);
+
 }
 

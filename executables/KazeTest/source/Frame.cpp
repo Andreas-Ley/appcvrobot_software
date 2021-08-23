@@ -4,6 +4,8 @@
 #include "SlowBrief.h"
 #include "Fast.h"
 
+#include "Map.h"
+
 void Frame::extractKeypoints(const Image &img, const SlowBrief &brief)
 {
     m_width = img.width();
@@ -19,14 +21,23 @@ void Frame::extractKeypoints(const Image &img, const SlowBrief &brief)
     brief(img, m_keypoints, m_descriptors, valid);
 }
 
-void Frame::buildKPGrid()
+void Frame::buildKPGrid(const InternalCalibration &internalCalib)
 {
+    internalCalib.undistortKeypoints(m_keypoints.data(), m_keypoints.size());
+
     m_kpGrid.resize(std::max(1u, m_height / 64), std::max(1u, m_width / 64));
-    m_kpGrid.build(m_width, m_height, m_keypoints);
+    m_kpGrid.build(
+        -(int)m_width/2,
+        -(int)m_height/2,
+        m_width+(int)m_width/2,
+        m_height+(int)m_height/2,
+        m_keypoints);
 }
 
 void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst) const
 {
+    const auto &otherKP = other.getKPGrid();
+
     dst.resize(m_keypoints.size());
     for (unsigned r = 0; r < m_kpGrid.getRows(); r++)
         for (unsigned c = 0; c < m_kpGrid.getCols(); c++) {
@@ -34,8 +45,18 @@ void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst) const
 
             for (auto srcIdx : cell) {
                 const auto srcKp = m_keypoints[srcIdx];
+                /*
                 unsigned dstColx2 = srcKp.x * other.getKPGrid().getCols()*2 / other.getWidth();
                 unsigned dstRowx2 = srcKp.y * other.getKPGrid().getRows()*2 / other.getHeight();
+                */
+
+
+                int width_times2 = (otherKP.getEndX() - otherKP.getStartX()) * 2;
+                int height_times2 = (otherKP.getEndY() - otherKP.getStartY()) * 2;
+
+                int dstRowx2, dstColx2;
+                dstRowx2 = (srcKp.y_undistorted_times4 - otherKP.getStartX()*4) * otherKP.getRows() / height_times2;
+                dstColx2 = (srcKp.x_undistorted_times4 - otherKP.getStartY()*4) * otherKP.getCols() / width_times2;
 
                 int dstCol = dstColx2 / 2;
                 int dstRow = dstRowx2 / 2;
@@ -101,14 +122,6 @@ void Frame::matchWith(const Frame &other, std::vector<RawMatch> &dst) const
                 dst[srcIdx].dstIdx = closestMatch;
                 dst[srcIdx].bestDistance = closestDistance;
                 dst[srcIdx].secondBestDistance = secondClosestDistance;
-/*
-                const unsigned ratio_num = 2;
-                const unsigned ratio_denom = 3;
-
-                if (closestDistance < 100 && closestDistance * ratio_denom < secondClosestDistance * ratio_num) {
-
-                }
-*/
             }
         }
 }

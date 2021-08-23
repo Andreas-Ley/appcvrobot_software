@@ -5,6 +5,7 @@
 #include <Eigen/Dense>
 
 #include "Frame.h"
+#include "Track.h"
 
 #include <fstream>
 
@@ -35,12 +36,27 @@
 
 namespace bi = boost::intrusive;
 
+template<class T>
+class Lock
+{
+    private:
+        Lock() = default;
+
+        friend T;
+};
+
+
+
 class Map;
 class Camera;
 
+struct Keypoint;
+
 struct InternalCalibration {
     Eigen::Matrix3f internalCalib;
-    Eigen::Vector3f distortion_k;
+    Eigen::Vector4f distortion_theta;
+
+    void undistortKeypoints(Keypoint *kps, unsigned count) const;
 };
 
 struct CameraPose {
@@ -55,30 +71,13 @@ struct NewTrack {
     unsigned matchScore;
 };
 
-class CameraMatches {
-    public:
-        struct MatchList {
-            Camera* otherCamera;
-            uint16_t dstKeypointIdx; // Index into other frame's keypoint list
-            uint16_t matchScore;
-            uint16_t residual_times_16;
-        };
-        struct Track {
-            uint16_t srcKeypointIdx; // Index into frame's keypoint list
-            float rcpZ;
-            float rcpZ_stdDev;
-            std::vector<MatchList> matches;
-        };
-
-        void addNewTracks(const CameraPose &pose, Camera *otherCamera, unsigned count, NewTrack *tracks);
-
-        inline const std::vector<Track> &getTracks() const { return m_tracks; }
-    protected:
-        std::vector<Track> m_tracks;
-};
-
 class Camera {
     public:
+        struct TrackReference {
+            Track* track = nullptr;
+            uint16_t keypointIndex;
+            uint16_t matchScore;
+        };
         typedef bi::list_member_hook<> MapListEntry;
         MapListEntry m_mapMember;
 
@@ -89,21 +88,34 @@ class Camera {
         Camera(const Camera &) = delete;
         void operator=(const Camera &) = delete;
 
+        inline const unsigned getCameraIndex() const { return m_cameraIndex; }
+
         inline const Frame &getFrame() const { return m_frame; }
 
-        inline const CameraMatches &getMatches() const { return m_matches; }
         inline const CameraPose &getPose() const { return m_pose; }
         inline InternalCalibration *getInternalCalibration() const { return m_internalCalib; }
 
+        Eigen::Matrix4f computeInverseProjectionView(bool includeTranslation);
+        const Eigen::Matrix4f &getInverseProjectionViewNoTranslation() { return m_inversePNoT; }
+
         void addNewTracks(Camera *otherCamera, unsigned count, NewTrack *tracks);
+
+        bool keyPointIsReferenced(unsigned idx) const;
+
+        void addTrackReference(TrackReference trackRef, Lock<Track>);
+
+        inline const std::vector<TrackReference> &getTrackReferences() const { return  m_trackReferences; }
     protected:
         Map &m_map;
+        unsigned m_cameraIndex;
         Frame m_frame;
 
         CameraPose m_pose;
         InternalCalibration *m_internalCalib;
 
-        CameraMatches m_matches;
+        Eigen::Matrix4f m_inversePNoT;
+
+        std::vector<TrackReference> m_trackReferences;
 
 };
 
@@ -113,6 +125,10 @@ class Map {
 
         CameraList m_cameras;
 
-
         void exportToPly(std::fstream &plyFile);
+
+        TrackList& getTrackAllocator() { return m_tracks;}
+
+    protected:
+        TrackList m_tracks;
 };

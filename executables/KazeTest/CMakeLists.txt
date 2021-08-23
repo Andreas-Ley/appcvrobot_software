@@ -35,10 +35,14 @@ add_executable(KazeTest
     source/RansacE.h
     source/RansacH.cpp
     source/RansacH.h
+    source/RansacPnP.cpp
+    source/RansacPnP.h
     source/SLAM.cpp
     source/SLAM.h
     source/MVGMath.cpp
     source/MVGMath.h
+    source/Track.cpp
+    source/Track.h
 )
 
 target_include_directories(KazeTest PUBLIC

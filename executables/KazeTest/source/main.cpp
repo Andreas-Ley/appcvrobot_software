@@ -4,6 +4,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <boost/format.hpp>
+
 #include "Image.h"
 #include "Frame.h"
 #include "Keypoint.h"
@@ -31,6 +33,8 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+
 
 #include "simd.h"
 
@@ -289,8 +293,12 @@ int main() {
     auto imgA = cv::imread("/home/pi/frame0126.png", cv::IMREAD_GRAYSCALE);
     auto imgB = cv::imread("/home/pi/frame0130.png", cv::IMREAD_GRAYSCALE);
 #else
-    auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0126.png", cv::IMREAD_GRAYSCALE);
-    auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0128.png", cv::IMREAD_GRAYSCALE);
+//    auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0126.png", cv::IMREAD_GRAYSCALE);
+  //  auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0128.png", cv::IMREAD_GRAYSCALE);
+    auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0140.png", cv::IMREAD_GRAYSCALE);
+    auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0141.png", cv::IMREAD_GRAYSCALE);
+    auto imgC = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0142.png", cv::IMREAD_GRAYSCALE);
+    auto imgD = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0143.png", cv::IMREAD_GRAYSCALE);
     //auto imgB = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0130.png", cv::IMREAD_GRAYSCALE);
 //    auto imgA = cv::imread("/home/irina/libcompile/software-appcvrobot/data/IMG_3745.JPG", cv::IMREAD_GRAYSCALE);
     //auto imgB = cv::imread("/home/irina/libcompile/software-appcvrobot/data/IMG_3746.JPG", cv::IMREAD_GRAYSCALE);
@@ -379,7 +387,7 @@ int main() {
 #endif
 
 #elif 1
-
+/*
     Eigen::Matrix3f K;
     K.setZero();
     K(0, 0) = 3.1227664660089198e+02;
@@ -389,26 +397,327 @@ int main() {
     K(1, 2) = 2.5560322207748723e+02;
     K(2, 2) = 1.0f;
 
-    Eigen::Vector3f distortion(0.0f, 0.0f, 0.0f);
+    Eigen::Vector3f distortion(
+        -3.0327660032814097e-01,
+        8.7421530658089608e-02,
+        -1.0535780569796692e-02
+    );
+*/
 
-    SLAM slam({.internalCalib = K, .distortion_k = distortion});
+    Eigen::Matrix3f K;
+    K.setZero();
+    K(0, 0) = 313.2487679028416;
+    K(1, 1) = 303.59222364574026;
+
+    K(0, 2) = 313.23045090013187;
+    K(1, 2) = 243.91877868655985;
+    K(2, 2) = 1.0f;
+
+    Eigen::Vector3f distortion(
+        -3.0327660032814097e-01,
+        8.7421530658089608e-02,
+        -1.0535780569796692e-02
+    );
+
+    Eigen::Vector4f distortion2(
+        -0.029796601592417548,
+        -0.004521727301937779,
+        -0.0008382190758876432,
+        0.0001776739942620309
+    );
 
 
-    Image inputImgA, inputImgB;
+    SLAM slam({.internalCalib = K, .distortion_theta = distortion2});
+
+
+    Image inputImgA, inputImgB, inputImgC, inputImgD;
     inputImgA.allocate(imgA.cols, imgA.rows);
     for (unsigned y = 0; y < imgA.rows; y++)
         for (unsigned x = 0; x < imgA.cols; x++)
             inputImgA(x, y) = imgA.at<std::uint8_t>(y, x);
+
+
 
     inputImgB.allocate(imgB.cols, imgB.rows);
     for (unsigned y = 0; y < imgB.rows; y++)
         for (unsigned x = 0; x < imgB.cols; x++)
             inputImgB(x, y) = imgB.at<std::uint8_t>(y, x);
 
+    inputImgC.allocate(imgC.cols, imgC.rows);
+    for (unsigned y = 0; y < imgC.rows; y++)
+        for (unsigned x = 0; x < imgC.cols; x++)
+            inputImgC(x, y) = imgC.at<std::uint8_t>(y, x);
+
+    inputImgD.allocate(imgD.cols, imgD.rows);
+    for (unsigned y = 0; y < imgD.rows; y++)
+        for (unsigned x = 0; x < imgD.cols; x++)
+            inputImgD(x, y) = imgD.at<std::uint8_t>(y, x);
+
+#if 1
+
 
     slam.tryIngestImage(inputImgA);
     slam.tryIngestImage(inputImgB);
+    slam.tryIngestImage(inputImgC);
+    slam.tryIngestImage(inputImgD);
 
+    for (unsigned i = 144; i < 170; i+=1) {
+        std::string filename = (boost::format("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame%04d.png") % i).str();
+        std::cout << "=== Processing frame " << filename << std::endl;
+        auto imgN = cv::imread(filename, cv::IMREAD_GRAYSCALE);
+
+        Image inputImgN;
+        inputImgN.allocate(imgN.cols, imgN.rows);
+        for (unsigned y = 0; y < imgN.rows; y++)
+            for (unsigned x = 0; x < imgN.cols; x++)
+                inputImgN(x, y) = imgN.at<std::uint8_t>(y, x);
+
+        slam.tryIngestImage(inputImgN);
+    }
+
+    std::cout << "Number of cameras in map: " << slam.getMap().m_cameras.size() << std::endl;
+
+#if 0
+    {
+
+        auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0140.png");
+        cv::resize(imgA, imgA, cv::Size(imgA.cols * 4, imgA.rows * 4));
+
+
+        auto &camera = slam.getMap().m_cameras.front();
+
+        for (auto &t : camera.getMatches().getTracks()) {
+
+
+            if (t.matches.size() < 2) continue;
+
+            struct TrackPoint {
+                unsigned x, y;
+                unsigned frameIdx;
+            };
+            std::vector<TrackPoint> points;
+
+            const auto & kp = camera.getFrame().getKeypoints()[t.srcKeypointIdx];
+            points.push_back({
+                .x = kp.x*4,
+                .y = kp.y*4,
+                .frameIdx = camera.getCameraIndex()
+            });
+
+            for (const auto &m : t.matches) {
+//                if (m.otherCamera->getCameraIndex() > 2) continue;
+
+                const auto &kp = m.otherCamera->getFrame().getKeypoints()[m.dstKeypointIdx];
+
+                points.push_back({
+                    .x = kp.x*4,
+                    .y = kp.y*4,
+                    .frameIdx = m.otherCamera->getCameraIndex()
+                });
+            }
+
+            std::sort(points.begin(), points.end(), [](const auto &lhs, const auto &rhs){
+                return lhs.frameIdx < rhs.frameIdx;
+            });
+
+            for (auto &p : points)
+                cv::circle(imgA, cv::Point(p.x, p.y), 3, cv::Scalar(255, 0, 0));
+
+            for (unsigned i = 1; i < points.size(); i++)
+                cv::line(imgA, cv::Point(points[i-1].x, points[i-1].y), cv::Point(points[i].x, points[i].y), cv::Scalar(255, 0, 0));
+        }
+
+        cv::imwrite("tracks_frame0.png", imgA);
+    }
+
+
+    {
+
+        auto imgA = cv::imread("/home/andy/Documents/CAD/AppCVRobot/data/fullHDTest_autoIso_640_480_frames/frame0140.png");
+
+
+        std::fstream plyFile("tracks_colored.ply", std::fstream::out);
+
+        unsigned numPoints = 0;
+        for (auto &camera : slam.getMap().m_cameras) {
+            numPoints += camera.getMatches().getTracks().size();
+            break;
+        }
+
+        plyFile
+            << "ply" << std::endl
+            << "format ascii 1.0" << std::endl
+            << "element vertex " << numPoints << std::endl
+            << "property float x" << std::endl
+            << "property float y" << std::endl
+            << "property float z" << std::endl
+            << "property uchar red" << std::endl
+            << "property uchar green" << std::endl
+            << "property uchar blue" << std::endl
+            << "end_header" << std::endl;
+
+
+        for (auto &camera : slam.getMap().m_cameras) {
+
+            const auto &pose = camera.getPose();
+
+            Eigen::Matrix4f invP = camera.computeInverseProjectionView(false);
+
+            for (auto &t : camera.getMatches().getTracks()) {
+
+                int ix = camera.getFrame().getKeypoints()[t.srcKeypointIdx].x;
+                int iy = camera.getFrame().getKeypoints()[t.srcKeypointIdx].y;
+
+                Eigen::Vector4f imageSpace;
+                imageSpace[0] = camera.getFrame().getKeypoints()[t.srcKeypointIdx].x_undistorted_times4;
+                imageSpace[1] = camera.getFrame().getKeypoints()[t.srcKeypointIdx].y_undistorted_times4;
+                imageSpace[2] = t.rcpZ * 4.0f;
+                imageSpace[3] = 4.0f;
+
+                Eigen::Vector4f cam_relative_ws = invP * imageSpace;
+
+                Eigen::Vector3f ws = pose.location + cam_relative_ws.head<3>() / cam_relative_ws[3];
+
+                plyFile << ws[0] << ' ' << ws[1] << ' ' << ws[2] << ' ';
+
+                auto color = imgA.at<cv::Vec3b>(iy, ix);
+
+                plyFile << (unsigned) color[2] << ' '
+                        << (unsigned) color[1] << ' '
+                        << (unsigned) color[0];
+
+                plyFile << std::endl;
+            }
+            break;
+        }
+    }
+#endif
+
+
+
+#endif
+
+
+
+
+
+
+
+
+
+
+
+    // try undistort
+
+    for (unsigned y = 0; y < imgA.rows; y++)
+        for (unsigned x = 0; x < imgA.cols; x++)
+            imgA.at<std::uint8_t>(y, x) = 0;
+
+    for (unsigned y = 0; y < imgA.rows; y++)
+        for (unsigned x = 0; x < imgA.cols; x++) {
+
+            Eigen::Vector2f distortedPixel(x + 0.5f, y + 0.5f);
+            Eigen::Vector2f distortedCenteredPixel = distortedPixel - Eigen::Vector2f(K(0, 2), K(1, 2));
+            Eigen::Vector2f distortedCentered;
+            distortedCentered[0] = distortedCenteredPixel[0] / K(0,0);
+            distortedCentered[1] = distortedCenteredPixel[1] / K(1,1);
+
+            float distortedRadius = std::sqrt(distortedCentered[0]*distortedCentered[0] + distortedCentered[1]*distortedCentered[1]);
+
+            /*
+             distortedRadius = undistortedRadius * (1 + distortion[0] * undistortedSqrRadius +
+                                                        distortion[1] * undistortedSqrRadius*undistortedSqrRadius +
+                                                        distortion[2] * undistortedSqrRadius*undistortedSqrRadius*undistortedSqrRadius);
+            */
+
+            float minUndistortedRadius = 0.0f;
+            float maxUndistortedRadius = distortedRadius * 3.0f;
+
+            for (unsigned iter = 0; iter < 10; iter++) {
+                float centerUndistorted = (maxUndistortedRadius + minUndistortedRadius) * 0.5;
+                float centerUndistortedSqr = centerUndistorted*centerUndistorted;
+
+                float centerDistorted = centerUndistorted * (1 + distortion[0] * centerUndistortedSqr +
+                                                        distortion[1] * centerUndistortedSqr*centerUndistortedSqr +
+                                                        distortion[2] * centerUndistortedSqr*centerUndistortedSqr*centerUndistortedSqr);
+
+                if (centerDistorted > distortedRadius)
+                    maxUndistortedRadius = centerUndistorted;
+                else
+                    minUndistortedRadius = centerUndistorted;
+            }
+
+            float undistortedR = (maxUndistortedRadius + minUndistortedRadius) * 0.5f;
+
+            float undistortedX = K(0, 2) + undistortedR/distortedRadius * distortedCenteredPixel[0];
+            float undistortedY = K(1, 2) + undistortedR/distortedRadius * distortedCenteredPixel[1];
+
+            int x_ = std::min<int>(std::max<int>(undistortedX, 0), inputImgA.width());
+            int y_ = std::min<int>(std::max<int>(undistortedY, 0), inputImgB.height());
+
+            imgA.at<std::uint8_t>(y_, x_) = inputImgA(x, y);
+        }
+
+    cv::imwrite("undistorted.png", imgA);
+
+
+
+
+    for (unsigned y = 0; y < imgA.rows; y++)
+        for (unsigned x = 0; x < imgA.cols; x++)
+            imgA.at<std::uint8_t>(y, x) = 0;
+
+    for (unsigned y = 0; y < imgA.rows; y++)
+        for (unsigned x = 0; x < imgA.cols; x++) {
+
+            Eigen::Vector2f distortedPixel(x + 0.5f, y + 0.5f);
+            Eigen::Vector2f distortedCenteredPixel = distortedPixel - Eigen::Vector2f(K(0, 2), K(1, 2));
+            Eigen::Vector2f distortedCentered;
+            distortedCentered[0] = distortedCenteredPixel[0] / K(0,0);
+            distortedCentered[1] = distortedCenteredPixel[1] / K(1,1);
+
+            float distortedRadius = std::sqrt(distortedCentered[0]*distortedCentered[0] + distortedCentered[1]*distortedCentered[1]);
+
+            /*
+                float theta = atan(undistortedRadius);
+                float sqrTheta = theta*theta;
+                distortedRadius = theta / undistortedRadius * (1 + distortion[0] * sqrTheta +
+                                                        distortion[1] * sqrTheta*sqrTheta +
+                                                        distortion[2] * sqrTheta*sqrTheta*sqrTheta);
+            */
+
+            float minUndistortedRadius = 0.0f;
+            float maxUndistortedRadius = distortedRadius * 5.0f;
+
+            for (unsigned iter = 0; iter < 10; iter++) {
+                float centerUndistorted = (maxUndistortedRadius + minUndistortedRadius) * 0.5;
+
+                float theta = std::atan(centerUndistorted);
+                float sqrTheta = theta*theta;
+
+                float centerDistorted = theta * (1 + distortion2[0] * sqrTheta +
+                                                        distortion2[1] * sqrTheta*sqrTheta +
+                                                        distortion2[2] * sqrTheta*sqrTheta*sqrTheta +
+                                                        distortion2[3] * sqrTheta*sqrTheta*sqrTheta*sqrTheta);
+
+                if (centerDistorted > distortedRadius)
+                    maxUndistortedRadius = centerUndistorted;
+                else
+                    minUndistortedRadius = centerUndistorted;
+            }
+
+            float undistortedR = (maxUndistortedRadius + minUndistortedRadius) * 0.5f;
+
+            float undistortedX = K(0, 2) + undistortedR/distortedRadius * distortedCenteredPixel[0] * 0.5f;
+            float undistortedY = K(1, 2) + undistortedR/distortedRadius * distortedCenteredPixel[1] * 0.5f;
+
+            int x_ = std::min<int>(std::max<int>(undistortedX, 0), inputImgA.width());
+            int y_ = std::min<int>(std::max<int>(undistortedY, 0), inputImgB.height());
+
+            imgA.at<std::uint8_t>(y_, x_) = inputImgA(x, y);
+        }
+
+    cv::imwrite("undistorted2.png", imgA);
 
 #elif 1
 
